@@ -1021,8 +1021,8 @@ extension Defaults.Keys {
     static let lockScreenBatteryShowsBluetooth = Key<Bool>("lockScreenWeatherShowsBluetooth", default: true)
     
         // MARK: Downloads
-    static let enableDownloadListener = Key<Bool>("enableDownloadListener", default: true)
-    static let enableSafariDownloads = Key<Bool>("enableSafariDownloads", default: true)
+    static let enableDownloadListener = Key<Bool>("enableDownloadListener", default: false)
+    static let enableSafariDownloads = Key<Bool>("enableSafariDownloads", default: false)
     static let selectedDownloadIndicatorStyle = Key<DownloadIndicatorStyle>("selectedDownloadIndicatorStyle", default: DownloadIndicatorStyle.progress)
     static let selectedDownloadIconStyle = Key<DownloadIconStyle>("selectedDownloadIconStyle", default: DownloadIconStyle.onlyAppIcon)
     
@@ -1398,6 +1398,8 @@ extension Defaults.Keys {
         Defaults[.enableTimerFeature] = false
         Defaults[.enableReminderLiveActivity] = false
         Defaults[.timerControlWindowEnabled] = false
+        Defaults[.enableDownloadListener] = false
+        Defaults[.enableSafariDownloads] = false
         Defaults[.enableColorPickerFeature] = false
         Defaults[.showColorPickerIcon] = false
         Defaults[.enableClipboardManager] = true
