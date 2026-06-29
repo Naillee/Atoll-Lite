@@ -34,7 +34,7 @@ struct DynamicNotchApp: App {
 
     init() {
         updaterController = SPUStandardUpdaterController(
-            startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+            startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
 
         // Initialize the settings window controller with the updater controller
         SettingsWindowController.shared.setUpdaterController(updaterController)
@@ -42,12 +42,11 @@ struct DynamicNotchApp: App {
 
     var body: some Scene {
         MenuBarExtra("dynamic.island", systemImage: "mountain.2.fill", isInserted: $showMenuBarIcon) {
-            Button("Settings") {
+            Button("设置") {
                 SettingsWindowController.shared.showWindow()
             }
-            CheckForUpdatesView(updater: updaterController.updater)
             Divider()
-            Button("Restart Atoll") {
+            Button("重启 Atoll Lite") {
                 guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return }
 
                 let workspace = NSWorkspace.shared
@@ -63,7 +62,7 @@ struct DynamicNotchApp: App {
 
                 NSApplication.shared.terminate(self)
             }
-            Button("Quit", role: .destructive) {
+            Button("退出", role: .destructive) {
                 NSApplication.shared.terminate(self)
             }
             .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
@@ -73,7 +72,7 @@ struct DynamicNotchApp: App {
     @CommandsBuilder
     var commands: some Commands {
         CommandGroup(replacing: .appSettings) {
-            Button("Settings…") {
+            Button("设置...") {
                 SettingsWindowController.shared.showWindow()
             }
         }
@@ -535,10 +534,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             deliverImmediately: true
         )
 
+        Defaults.Keys.applyAtollLiteDefaultsIfNeeded()
+
         LockScreenLiveActivityWindowManager.shared.configure(viewModel: vm)
         LockScreenManager.shared.configure(viewModel: vm)
-        extensionXPCServiceHost.start()
-        extensionRPCServer.start()
+        if Defaults[.enableThirdPartyExtensions] {
+            extensionXPCServiceHost.start()
+            extensionRPCServer.start()
+        }
         
         // Migrate legacy progress bar settings
         Defaults.Keys.migrateProgressBarStyle()
@@ -591,7 +594,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Setup Privacy Indicator Manager (camera and microphone monitoring)
-        PrivacyIndicatorManager.shared.startMonitoring()
+        if Defaults[.enableCameraDetection] || Defaults[.enableMicrophoneDetection] {
+            PrivacyIndicatorManager.shared.startMonitoring()
+        }
         
         // Setup Real-time Audio Waveform capture if enabled
         if Defaults[.enableRealTimeWaveform] {

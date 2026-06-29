@@ -826,6 +826,7 @@ struct NoteItem: Codable, Identifiable, Defaults.Serializable, Hashable {
 extension Defaults.Keys {
         // MARK: General
     static let logLevel = Key<LogLevel>("logLevel", default: .none)
+    static let didApplyAtollLiteDefaultsV1 = Key<Bool>("didApplyAtollLiteDefaultsV1", default: false)
     static let menubarIcon = Key<Bool>("menubarIcon", default: true)
     static let showOnAllDisplays = Key<Bool>("showOnAllDisplays", default: false)
     static let automaticallySwitchDisplay = Key<Bool>("automaticallySwitchDisplay", default: true)
@@ -874,7 +875,7 @@ extension Defaults.Keys {
     static let selectedIdleAnimation = Key<CustomIdleAnimation?>("selectedIdleAnimation", default: nil)
     static let animationTransformOverrides = Key<[String: AnimationTransformConfig]>("animationTransformOverrides", default: [:])
     static let tileShowLabels = Key<Bool>("tileShowLabels", default: false)
-    static let showCalendar = Key<Bool>("showCalendar", default: true)
+    static let showCalendar = Key<Bool>("showCalendar", default: false)
     static let hideCompletedReminders = Key<Bool>("hideCompletedReminders", default: true)
     static let hideAllDayEvents = Key<Bool>("hideAllDayEvents", default: false)
     static let sliderColor = Key<SliderColorEnum>(
@@ -882,7 +883,7 @@ extension Defaults.Keys {
         default: SliderColorEnum.white
     )
     static let playerColorTinting = Key<Bool>("playerColorTinting", default: true)
-    static let useMusicVisualizer = Key<Bool>("useMusicVisualizer", default: true)
+    static let useMusicVisualizer = Key<Bool>("useMusicVisualizer", default: false)
     static let customVisualizers = Key<[CustomVisualizer]>("customVisualizers", default: [])
     static let selectedVisualizer = Key<CustomVisualizer?>("selectedVisualizer", default: nil)
     static let customAppIcons = Key<[CustomAppIcon]>("customAppIcons", default: [])
@@ -921,11 +922,11 @@ extension Defaults.Keys {
     static let cachedLockScreenMediaWidgetPreference = Key<Bool?>("cachedLockScreenMediaWidgetPreference", default: nil)
     static let cachedMusicControlWindowPreference = Key<Bool?>("cachedMusicControlWindowPreference", default: nil)
     // Enable lock screen media widget (shows the standalone panel when screen is locked)
-    static let enableLockScreenMediaWidget = Key<Bool>("enableLockScreenMediaWidget", default: true)
-    static let enableLockScreenWeatherWidget = Key<Bool>("enableLockScreenWeatherWidget", default: true)
-    static let enableLockScreenFocusWidget = Key<Bool>("enableLockScreenFocusWidget", default: true)
-    static let enableLockScreenReminderWidget = Key<Bool>("enableLockScreenReminderWidget", default: true)
-    static let enableLockScreenTimerWidget = Key<Bool>("enableLockScreenTimerWidget", default: true)
+    static let enableLockScreenMediaWidget = Key<Bool>("enableLockScreenMediaWidget", default: false)
+    static let enableLockScreenWeatherWidget = Key<Bool>("enableLockScreenWeatherWidget", default: false)
+    static let enableLockScreenFocusWidget = Key<Bool>("enableLockScreenFocusWidget", default: false)
+    static let enableLockScreenReminderWidget = Key<Bool>("enableLockScreenReminderWidget", default: false)
+    static let enableLockScreenTimerWidget = Key<Bool>("enableLockScreenTimerWidget", default: false)
     static let lockScreenWeatherRefreshInterval = Key<TimeInterval>("lockScreenWeatherRefreshInterval", default: 30 * 60)
     static let lockScreenWeatherShowsLocation = Key<Bool>("lockScreenWeatherShowsLocation", default: true)
     static let lockScreenWeatherShowsSunrise = Key<Bool>("lockScreenWeatherShowsSunrise", default: true)
@@ -1105,7 +1106,7 @@ extension Defaults.Keys {
     static let terminalStickyMode = Key<Bool>("terminalStickyMode", default: false)
     
     // MARK: Timer Feature
-    static let enableTimerFeature = Key<Bool>("enableTimerFeature", default: true)
+    static let enableTimerFeature = Key<Bool>("enableTimerFeature", default: false)
     static let timerDisplayMode = Key<TimerDisplayMode>("timerDisplayMode", default: .tab)
     static let timerPresets = Key<[TimerPreset]>("timerPresets", default: TimerPreset.defaultPresets)
     static let showTimerPresetsInNotchTab = Key<Bool>("showTimerPresetsInNotchTab", default: true)
@@ -1120,18 +1121,18 @@ extension Defaults.Keys {
     
     
     // MARK: Reminder Live Activity
-    static let enableReminderLiveActivity = Key<Bool>("enableReminderLiveActivity", default: true)
+    static let enableReminderLiveActivity = Key<Bool>("enableReminderLiveActivity", default: false)
     static let reminderPresentationStyle = Key<ReminderPresentationStyle>("reminderPresentationStyle", default: .ringCountdown)
     static let reminderLeadTime = Key<Int>("reminderLeadTime", default: 5)
     static let reminderSneakPeekDuration = Key<Double>("reminderSneakPeekDuration", default: 5)
-    static let timerControlWindowEnabled = Key<Bool>("timerControlWindowEnabled", default: true)
+    static let timerControlWindowEnabled = Key<Bool>("timerControlWindowEnabled", default: false)
     
     // MARK: ColorPicker Feature
-    static let enableColorPickerFeature = Key<Bool>("enableColorPickerFeature", default: true)
+    static let enableColorPickerFeature = Key<Bool>("enableColorPickerFeature", default: false)
     static let showColorFormats = Key<Bool>("showColorFormats", default: true)
     static let colorPickerDisplayMode = Key<ColorPickerDisplayMode>("colorPickerDisplayMode", default: .panel)
     static let colorHistorySize = Key<Int>("colorHistorySize", default: 10)
-    static let showColorPickerIcon = Key<Bool>("showColorPickerIcon", default: true)
+    static let showColorPickerIcon = Key<Bool>("showColorPickerIcon", default: false)
     
     // MARK: Clipboard Feature
     static let enableClipboardManager = Key<Bool>("enableClipboardManager", default: true)
@@ -1140,7 +1141,7 @@ extension Defaults.Keys {
     static let clipboardDisplayMode = Key<ClipboardDisplayMode>("clipboardDisplayMode", default: .panel)
     
     // MARK: Screen Assistant Feature
-    static let enableScreenAssistant = Key<Bool>("enableScreenAssistant", default: true)
+    static let enableScreenAssistant = Key<Bool>("enableScreenAssistant", default: false)
     static let screenAssistantDisplayMode = Key<ScreenAssistantDisplayMode>("screenAssistantDisplayMode", default: .panel)
     static let geminiApiKey = Key<String>("geminiApiKey", default: "")
     static let openaiApiKey = Key<String>("openaiApiKey", default: "")
@@ -1152,20 +1153,20 @@ extension Defaults.Keys {
     static let localModelEndpoint = Key<String>("localModelEndpoint", default: "http://localhost:11434")
 
     // MARK: Third-Party Extensions
-    static let enableThirdPartyExtensions = Key<Bool>("enableThirdPartyExtensions", default: true)
-    static let enableExtensionLiveActivities = Key<Bool>("enableExtensionLiveActivities", default: true)
-    static let enableExtensionLockScreenWidgets = Key<Bool>("enableExtensionLockScreenWidgets", default: true)
-    static let enableExtensionNotchExperiences = Key<Bool>("enableExtensionNotchExperiences", default: true)
-    static let enableExtensionNotchTabs = Key<Bool>("enableExtensionNotchTabs", default: true)
-    static let enableExtensionNotchMinimalisticOverrides = Key<Bool>("enableExtensionNotchMinimalisticOverrides", default: true)
-    static let enableExtensionNotchInteractiveWebViews = Key<Bool>("enableExtensionNotchInteractiveWebViews", default: true)
+    static let enableThirdPartyExtensions = Key<Bool>("enableThirdPartyExtensions", default: false)
+    static let enableExtensionLiveActivities = Key<Bool>("enableExtensionLiveActivities", default: false)
+    static let enableExtensionLockScreenWidgets = Key<Bool>("enableExtensionLockScreenWidgets", default: false)
+    static let enableExtensionNotchExperiences = Key<Bool>("enableExtensionNotchExperiences", default: false)
+    static let enableExtensionNotchTabs = Key<Bool>("enableExtensionNotchTabs", default: false)
+    static let enableExtensionNotchMinimalisticOverrides = Key<Bool>("enableExtensionNotchMinimalisticOverrides", default: false)
+    static let enableExtensionNotchInteractiveWebViews = Key<Bool>("enableExtensionNotchInteractiveWebViews", default: false)
     static let extensionAuthorizationEntries = Key<[ExtensionAuthorizationEntry]>("extensionAuthorizationEntries", default: [])
     static let extensionRateLimitRecords = Key<[ExtensionRateLimitRecord]>("extensionRateLimitRecords", default: [])
-    static let extensionDiagnosticsLoggingEnabled = Key<Bool>("extensionDiagnosticsLoggingEnabled", default: true)
+    static let extensionDiagnosticsLoggingEnabled = Key<Bool>("extensionDiagnosticsLoggingEnabled", default: false)
     static let extensionLiveActivityCapacity = Key<Int>("extensionLiveActivityCapacity", default: 4)
     static let extensionLockScreenWidgetCapacity = Key<Int>("extensionLockScreenWidgetCapacity", default: 4)
     static let extensionNotchExperienceCapacity = Key<Int>("extensionNotchExperienceCapacity", default: 2)
-    static let enableExtensionFileSharing = Key<Bool>("enableExtensionFileSharing", default: true)
+    static let enableExtensionFileSharing = Key<Bool>("enableExtensionFileSharing", default: false)
     
     // MARK: Keyboard Shortcuts
     static let enableShortcuts = Key<Bool>("enableShortcuts", default: true)
@@ -1239,28 +1240,28 @@ extension Defaults.Keys {
     static let osdIconColorStyle = Key<OSDIconColorStyle>("osdIconColorStyle", default: .white)
     
     // MARK: Screen Recording Detection Feature
-    static let enableScreenRecordingDetection = Key<Bool>("enableScreenRecordingDetection", default: true)
-    static let showRecordingIndicator = Key<Bool>("showRecordingIndicator", default: true)
+    static let enableScreenRecordingDetection = Key<Bool>("enableScreenRecordingDetection", default: false)
+    static let showRecordingIndicator = Key<Bool>("showRecordingIndicator", default: false)
     // Polling removed - now uses event-driven private API detection (CGSIsScreenWatcherPresent)
     // static let enableScreenRecordingPolling = Key<Bool>("enableScreenRecordingPolling", default: false)
 
     // MARK: Focus / Do Not Disturb Detection
-    static let enableDoNotDisturbDetection = Key<Bool>("enableDoNotDisturbDetection", default: true)
+    static let enableDoNotDisturbDetection = Key<Bool>("enableDoNotDisturbDetection", default: false)
     static let focusMonitoringMode = Key<FocusMonitoringMode>("focusMonitoringMode", default: .withoutDevTools)
-    static let showDoNotDisturbIndicator = Key<Bool>("showDoNotDisturbIndicator", default: true)
-    static let showDoNotDisturbLabel = Key<Bool>("showDoNotDisturbLabel", default: true)
+    static let showDoNotDisturbIndicator = Key<Bool>("showDoNotDisturbIndicator", default: false)
+    static let showDoNotDisturbLabel = Key<Bool>("showDoNotDisturbLabel", default: false)
     static let focusIndicatorNonPersistent = Key<Bool>("focusIndicatorNonPersistent", default: false)
     
     // MARK: Privacy Indicators (Camera & Microphone Detection)
-    static let enableCameraDetection = Key<Bool>("enableCameraDetection", default: true)
-    static let enableMicrophoneDetection = Key<Bool>("enableMicrophoneDetection", default: true)
+    static let enableCameraDetection = Key<Bool>("enableCameraDetection", default: false)
+    static let enableMicrophoneDetection = Key<Bool>("enableMicrophoneDetection", default: false)
     
     // MARK: Lock Screen Features
-    static let enableLockScreenLiveActivity = Key<Bool>("enableLockScreenLiveActivity", default: true)
-    static let enableLockSounds = Key<Bool>("enableLockSounds", default: true)
+    static let enableLockScreenLiveActivity = Key<Bool>("enableLockScreenLiveActivity", default: false)
+    static let enableLockSounds = Key<Bool>("enableLockSounds", default: false)
     
     // MARK: Caps Lock Indicator
-    static let enableCapsLockIndicator = Key<Bool>("enableCapsLockIndicator", default: true)
+    static let enableCapsLockIndicator = Key<Bool>("enableCapsLockIndicator", default: false)
     static let capsLockIndicatorUseGreenColor = Key<Bool>("capsLockIndicatorUseGreenColor", default: false) // Legacy toggle
     static let capsLockIndicatorTintMode = Key<CapsLockIndicatorTintMode>("capsLockIndicatorTintMode", default: .white)
     static let didMigrateCapsLockTintMode = Key<Bool>("didMigrateCapsLockTintMode", default: false)
@@ -1377,6 +1378,52 @@ extension Defaults.Keys {
         let current = Defaults[.musicAuxLeftControl]
         let fallback = MusicAuxiliaryControl.alternative(excluding: current)
         Defaults[.musicAuxRightControl] = fallback
+    }
+
+    static func applyAtollLiteDefaultsIfNeeded() {
+        guard Defaults[.didApplyAtollLiteDefaultsV1] == false else { return }
+
+        Defaults[.showCalendar] = false
+        Defaults[.useMusicVisualizer] = false
+        Defaults[.enableRealTimeWaveform] = false
+        Defaults[.enableSneakPeek] = false
+        Defaults[.enableLockScreenMediaWidget] = false
+        Defaults[.enableLockScreenWeatherWidget] = false
+        Defaults[.enableLockScreenFocusWidget] = false
+        Defaults[.enableLockScreenReminderWidget] = false
+        Defaults[.enableLockScreenTimerWidget] = false
+        Defaults[.enableStatsFeature] = false
+        Defaults[.autoStartStatsMonitoring] = false
+        Defaults[.enableTerminalFeature] = false
+        Defaults[.enableTimerFeature] = false
+        Defaults[.enableReminderLiveActivity] = false
+        Defaults[.timerControlWindowEnabled] = false
+        Defaults[.enableColorPickerFeature] = false
+        Defaults[.showColorPickerIcon] = false
+        Defaults[.enableClipboardManager] = true
+        Defaults[.showClipboardIcon] = true
+        Defaults[.enableScreenAssistant] = false
+        Defaults[.enableThirdPartyExtensions] = false
+        Defaults[.enableExtensionLiveActivities] = false
+        Defaults[.enableExtensionLockScreenWidgets] = false
+        Defaults[.enableExtensionNotchExperiences] = false
+        Defaults[.enableExtensionNotchTabs] = false
+        Defaults[.enableExtensionNotchMinimalisticOverrides] = false
+        Defaults[.enableExtensionNotchInteractiveWebViews] = false
+        Defaults[.extensionDiagnosticsLoggingEnabled] = false
+        Defaults[.enableExtensionFileSharing] = false
+        Defaults[.enableScreenRecordingDetection] = false
+        Defaults[.showRecordingIndicator] = false
+        Defaults[.enableDoNotDisturbDetection] = false
+        Defaults[.showDoNotDisturbIndicator] = false
+        Defaults[.showDoNotDisturbLabel] = false
+        Defaults[.enableCameraDetection] = false
+        Defaults[.enableMicrophoneDetection] = false
+        Defaults[.enableLockScreenLiveActivity] = false
+        Defaults[.enableLockSounds] = false
+        Defaults[.enableCapsLockIndicator] = false
+
+        Defaults[.didApplyAtollLiteDefaultsV1] = true
     }
     static let showSongMetadataInClosedNotch = Key<Bool>("showSongMetadataInClosedNotch", default: false)
 }
