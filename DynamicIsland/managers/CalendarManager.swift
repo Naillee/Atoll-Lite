@@ -20,6 +20,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import Combine
 import Defaults
 import EventKit
 import SwiftUI
@@ -56,17 +57,52 @@ class CalendarManager: ObservableObject {
     private var lastLockScreenEventsFetchDate: Date?
     private let lockScreenRefreshInterval: TimeInterval = 15
     private var lockScreenRefreshTask: Task<Void, Never>?
+    private var backgroundServicesStarted = false
+    private var cancellables = Set<AnyCancellable>()
+
+    private static var shouldStartBackgroundServices: Bool {
+        Defaults[.showCalendar] ||
+            Defaults[.enableLockScreenWeatherWidget] ||
+            Defaults[.enableLockScreenFocusWidget] ||
+            Defaults[.enableLockScreenReminderWidget] ||
+            Defaults[.enableReminderLiveActivity]
+    }
 
     var hasCalendarAccess: Bool { isAuthorized(calendarAuthorizationStatus) }
     var hasReminderAccess: Bool { isAuthorized(reminderAuthorizationStatus) }
 
     private init() {
         currentWeekStartDate = CalendarManager.startOfDay(Date())
+        setupSettingsObservers()
+        startBackgroundServicesIfNeeded()
+    }
+
+    private func startBackgroundServicesIfNeeded() {
+        guard Self.shouldStartBackgroundServices, !backgroundServicesStarted else { return }
+        backgroundServicesStarted = true
         setupEventStoreChangedObserver()
         startLockScreenRefreshLoop()
         Task {
             await reloadCalendarAndReminderLists()
         }
+    }
+
+    private func setupSettingsObservers() {
+        Defaults.publisher(.showCalendar, options: [])
+            .sink { [weak self] _ in self?.startBackgroundServicesIfNeeded() }
+            .store(in: &cancellables)
+        Defaults.publisher(.enableLockScreenWeatherWidget, options: [])
+            .sink { [weak self] _ in self?.startBackgroundServicesIfNeeded() }
+            .store(in: &cancellables)
+        Defaults.publisher(.enableLockScreenFocusWidget, options: [])
+            .sink { [weak self] _ in self?.startBackgroundServicesIfNeeded() }
+            .store(in: &cancellables)
+        Defaults.publisher(.enableLockScreenReminderWidget, options: [])
+            .sink { [weak self] _ in self?.startBackgroundServicesIfNeeded() }
+            .store(in: &cancellables)
+        Defaults.publisher(.enableReminderLiveActivity, options: [])
+            .sink { [weak self] _ in self?.startBackgroundServicesIfNeeded() }
+            .store(in: &cancellables)
     }
 
     deinit {

@@ -827,6 +827,8 @@ extension Defaults.Keys {
         // MARK: General
     static let logLevel = Key<LogLevel>("logLevel", default: .none)
     static let didApplyAtollLiteDefaultsV1 = Key<Bool>("didApplyAtollLiteDefaultsV1", default: false)
+    static let didApplyAtollLiteDefaultsV2 = Key<Bool>("didApplyAtollLiteDefaultsV2", default: false)
+    static let enableMemoryUsageMonitor = Key<Bool>("enableMemoryUsageMonitor", default: false)
     static let menubarIcon = Key<Bool>("menubarIcon", default: true)
     static let showOnAllDisplays = Key<Bool>("showOnAllDisplays", default: false)
     static let automaticallySwitchDisplay = Key<Bool>("automaticallySwitchDisplay", default: true)
@@ -904,7 +906,7 @@ extension Defaults.Keys {
     static let enableSneakPeek = Key<Bool>("enableSneakPeek", default: false)
     static let sneakPeekStyles = Key<SneakPeekStyle>("sneakPeekStyles", default: .standard)
     static let showSneakPeekOnTrackChange = Key<Bool>("showSneakPeekOnTrackChange", default: true)
-    static let enableFullscreenMediaDetection = Key<Bool>("enableFullscreenMediaDetection", default: true)
+    static let enableFullscreenMediaDetection = Key<Bool>("enableFullscreenMediaDetection", default: false)
     static let parallaxEffectIntensity = Key<Double>("parallaxEffectIntensity", default: 6.0)
     static let waitInterval = Key<Double>("waitInterval", default: 3)
     static let showShuffleAndRepeat = Key<Bool>("showShuffleAndRepeat", default: true)
@@ -1078,7 +1080,7 @@ extension Defaults.Keys {
     
     // MARK: Stats Feature
     static let enableStatsFeature = Key<Bool>("enableStatsFeature", default: false)
-    static let autoStartStatsMonitoring = Key<Bool>("autoStartStatsMonitoring", default: true)
+    static let autoStartStatsMonitoring = Key<Bool>("autoStartStatsMonitoring", default: false)
     static let statsStopWhenNotchCloses = Key<Bool>("statsStopWhenNotchCloses", default: true)
     static let statsUpdateInterval = Key<Double>("statsUpdateInterval", default: 1.0)
     static let showCpuGraph = Key<Bool>("showCpuGraph", default: true)
@@ -1172,10 +1174,10 @@ extension Defaults.Keys {
     static let enableShortcuts = Key<Bool>("enableShortcuts", default: true)
     
     // MARK: System HUD Feature
-    static let enableSystemHUD = Key<Bool>("enableSystemHUD", default: true)
-    static let enableVolumeHUD = Key<Bool>("enableVolumeHUD", default: true)
-    static let enableBrightnessHUD = Key<Bool>("enableBrightnessHUD", default: true)
-    static let enableKeyboardBacklightHUD = Key<Bool>("enableKeyboardBacklightHUD", default: true)
+    static let enableSystemHUD = Key<Bool>("enableSystemHUD", default: false)
+    static let enableVolumeHUD = Key<Bool>("enableVolumeHUD", default: false)
+    static let enableBrightnessHUD = Key<Bool>("enableBrightnessHUD", default: false)
+    static let enableKeyboardBacklightHUD = Key<Bool>("enableKeyboardBacklightHUD", default: false)
     static let systemHUDSensitivity = Key<Int>("systemHUDSensitivity", default: 5)
     static let playVolumeChangeFeedback = Key<Bool>("playVolumeChangeFeedback", default: false)
 
@@ -1381,51 +1383,65 @@ extension Defaults.Keys {
     }
 
     static func applyAtollLiteDefaultsIfNeeded() {
-        guard Defaults[.didApplyAtollLiteDefaultsV1] == false else { return }
+        if Defaults[.didApplyAtollLiteDefaultsV1] == false {
+            Defaults[.showCalendar] = false
+            Defaults[.useMusicVisualizer] = false
+            Defaults[.enableRealTimeWaveform] = false
+            Defaults[.enableSneakPeek] = false
+            Defaults[.enableFullscreenMediaDetection] = false
+            Defaults[.enableLockScreenMediaWidget] = false
+            Defaults[.enableLockScreenWeatherWidget] = false
+            Defaults[.enableLockScreenFocusWidget] = false
+            Defaults[.enableLockScreenReminderWidget] = false
+            Defaults[.enableLockScreenTimerWidget] = false
+            Defaults[.enableStatsFeature] = false
+            Defaults[.autoStartStatsMonitoring] = false
+            Defaults[.enableTerminalFeature] = false
+            Defaults[.enableTimerFeature] = false
+            Defaults[.enableReminderLiveActivity] = false
+            Defaults[.timerControlWindowEnabled] = false
+            Defaults[.enableDownloadListener] = false
+            Defaults[.enableSafariDownloads] = false
+            Defaults[.enableColorPickerFeature] = false
+            Defaults[.showColorPickerIcon] = false
+            Defaults[.enableClipboardManager] = true
+            Defaults[.showClipboardIcon] = true
+            Defaults[.enableScreenAssistant] = false
+            Defaults[.enableThirdPartyExtensions] = false
+            Defaults[.enableExtensionLiveActivities] = false
+            Defaults[.enableExtensionLockScreenWidgets] = false
+            Defaults[.enableExtensionNotchExperiences] = false
+            Defaults[.enableExtensionNotchTabs] = false
+            Defaults[.enableExtensionNotchMinimalisticOverrides] = false
+            Defaults[.enableExtensionNotchInteractiveWebViews] = false
+            Defaults[.extensionDiagnosticsLoggingEnabled] = false
+            Defaults[.enableExtensionFileSharing] = false
+            Defaults[.enableScreenRecordingDetection] = false
+            Defaults[.showRecordingIndicator] = false
+            Defaults[.enableDoNotDisturbDetection] = false
+            Defaults[.showDoNotDisturbIndicator] = false
+            Defaults[.showDoNotDisturbLabel] = false
+            Defaults[.enableCameraDetection] = false
+            Defaults[.enableMicrophoneDetection] = false
+            Defaults[.enableLockScreenLiveActivity] = false
+            Defaults[.enableLockSounds] = false
+            Defaults[.enableCapsLockIndicator] = false
 
-        Defaults[.showCalendar] = false
-        Defaults[.useMusicVisualizer] = false
-        Defaults[.enableRealTimeWaveform] = false
-        Defaults[.enableSneakPeek] = false
-        Defaults[.enableLockScreenMediaWidget] = false
-        Defaults[.enableLockScreenWeatherWidget] = false
-        Defaults[.enableLockScreenFocusWidget] = false
-        Defaults[.enableLockScreenReminderWidget] = false
-        Defaults[.enableLockScreenTimerWidget] = false
-        Defaults[.enableStatsFeature] = false
-        Defaults[.autoStartStatsMonitoring] = false
-        Defaults[.enableTerminalFeature] = false
-        Defaults[.enableTimerFeature] = false
-        Defaults[.enableReminderLiveActivity] = false
-        Defaults[.timerControlWindowEnabled] = false
-        Defaults[.enableDownloadListener] = false
-        Defaults[.enableSafariDownloads] = false
-        Defaults[.enableColorPickerFeature] = false
-        Defaults[.showColorPickerIcon] = false
-        Defaults[.enableClipboardManager] = true
-        Defaults[.showClipboardIcon] = true
-        Defaults[.enableScreenAssistant] = false
-        Defaults[.enableThirdPartyExtensions] = false
-        Defaults[.enableExtensionLiveActivities] = false
-        Defaults[.enableExtensionLockScreenWidgets] = false
-        Defaults[.enableExtensionNotchExperiences] = false
-        Defaults[.enableExtensionNotchTabs] = false
-        Defaults[.enableExtensionNotchMinimalisticOverrides] = false
-        Defaults[.enableExtensionNotchInteractiveWebViews] = false
-        Defaults[.extensionDiagnosticsLoggingEnabled] = false
-        Defaults[.enableExtensionFileSharing] = false
-        Defaults[.enableScreenRecordingDetection] = false
-        Defaults[.showRecordingIndicator] = false
-        Defaults[.enableDoNotDisturbDetection] = false
-        Defaults[.showDoNotDisturbIndicator] = false
-        Defaults[.showDoNotDisturbLabel] = false
-        Defaults[.enableCameraDetection] = false
-        Defaults[.enableMicrophoneDetection] = false
-        Defaults[.enableLockScreenLiveActivity] = false
-        Defaults[.enableLockSounds] = false
-        Defaults[.enableCapsLockIndicator] = false
+            Defaults[.didApplyAtollLiteDefaultsV1] = true
+        }
 
-        Defaults[.didApplyAtollLiteDefaultsV1] = true
+        if Defaults[.didApplyAtollLiteDefaultsV2] == false {
+            Defaults[.showCalendar] = false
+            Defaults[.enableDownloadListener] = false
+            Defaults[.enableSafariDownloads] = false
+            Defaults[.enableSystemHUD] = false
+            Defaults[.enableVolumeHUD] = false
+            Defaults[.enableBrightnessHUD] = false
+            Defaults[.enableKeyboardBacklightHUD] = false
+            Defaults[.enableFullscreenMediaDetection] = false
+            Defaults[.enableMemoryUsageMonitor] = false
+            Defaults[.didApplyAtollLiteDefaultsV2] = true
+        }
     }
     static let showSongMetadataInClosedNotch = Key<Bool>("showSongMetadataInClosedNotch", default: false)
 }

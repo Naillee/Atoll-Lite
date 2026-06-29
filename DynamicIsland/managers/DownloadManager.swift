@@ -43,7 +43,6 @@ class DownloadManager {
     }
     
     init() {
-        requestDownloadsPermissionIfNeeded()
         startMonitoringIfNeeded()
         
         Defaults.publisher(.enableDownloadListener)
@@ -57,6 +56,7 @@ class DownloadManager {
     
     private func startMonitoringIfNeeded() {
         if Defaults[.enableDownloadListener] {
+            requestDownloadsPermissionIfNeeded()
             startMonitoring()
         } else {
             stopMonitoring()

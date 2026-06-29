@@ -22,6 +22,7 @@
 
 import Defaults
 import MacroVisionKit
+import Combine
 import SwiftUI
 
 class FullscreenMediaDetector: ObservableObject {
@@ -30,15 +31,34 @@ class FullscreenMediaDetector: ObservableObject {
     @ObservedObject private var musicManager = MusicManager.shared
     @MainActor @Published private(set) var fullscreenStatus: [String: Bool] = [:]
     private var notificationTask: Task<Void, Never>?
+    private var cancellables = Set<AnyCancellable>()
 
     private init() {
         self.detector = MacroVisionKit.shared
         detector.configuration.includeSystemApps = true
-        setupNotificationObservers()
-        updateFullScreenStatus()
+        if Defaults[.enableFullscreenMediaDetection] {
+            setupNotificationObservers()
+            updateFullScreenStatus()
+        } else {
+            resetFullScreenStatus()
+        }
+
+        Defaults.publisher(.enableFullscreenMediaDetection, options: [])
+            .sink { [weak self] change in
+                guard let self else { return }
+                if change.newValue {
+                    self.setupNotificationObservers()
+                    self.updateFullScreenStatus()
+                } else {
+                    self.cleanupNotificationObservers()
+                    self.resetFullScreenStatus()
+                }
+            }
+            .store(in: &cancellables)
     }
 
     private func setupNotificationObservers() {
+        guard notificationTask == nil else { return }
         notificationTask = Task { @Sendable [weak self] in
             await withTaskGroup(of: Void.self) { group in
                 group.addTask {
@@ -71,10 +91,7 @@ class FullscreenMediaDetector: ObservableObject {
 
     private func updateFullScreenStatus() {
         guard Defaults[.enableFullscreenMediaDetection] else {
-            let reset = Dictionary(uniqueKeysWithValues: NSScreen.screens.map { ($0.localizedName, false) })
-            if reset != fullscreenStatus {
-                fullscreenStatus = reset
-            }
+            resetFullScreenStatus()
             return
         }
         
@@ -92,11 +109,20 @@ class FullscreenMediaDetector: ObservableObject {
         }
     }
 
+    private func resetFullScreenStatus() {
+        let reset = Dictionary(uniqueKeysWithValues: NSScreen.screens.map { ($0.localizedName, false) })
+        if reset != fullscreenStatus {
+            fullscreenStatus = reset
+        }
+    }
+
     private func cleanupNotificationObservers() {
+        notificationTask?.cancel()
+        notificationTask = nil
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
     deinit {
-        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        cleanupNotificationObservers()
     }
 }

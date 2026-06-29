@@ -24,6 +24,8 @@ import Sparkle
 import SwiftUI
 import SkyLightWindow
 
+private let atollLiteDefaultsBootstrap: Void = Defaults.Keys.applyAtollLiteDefaultsIfNeeded()
+
 @main
 struct DynamicNotchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -92,6 +94,7 @@ extension AppDelegate {
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    private let liteDefaultsBootstrap = atollLiteDefaultsBootstrap
     var statusItem: NSStatusItem?
     var windows: [NSScreen: NSWindow] = [:]
     var viewModels: [NSScreen: DynamicIslandViewModel] = [:]
@@ -674,7 +677,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.debouncedUpdateWindowSize()
         }.store(in: &cancellables)
 
-        MemoryUsageMonitor.shared.startMonitoring()
+        if Defaults[.enableMemoryUsageMonitor] {
+            MemoryUsageMonitor.shared.startMonitoring()
+        }
 
         ReminderLiveActivityManager.shared.$activeWindowReminders
             .receive(on: RunLoop.main)
