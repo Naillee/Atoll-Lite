@@ -892,10 +892,10 @@ extension Defaults.Keys {
     static let selectedAppIconID = Key<String?>("selectedAppIconID", default: nil)
     
         // MARK: Gestures
-    static let enableGestures = Key<Bool>("enableGestures", default: true)
-    static let closeGestureEnabled = Key<Bool>("closeGestureEnabled", default: true)
+    static let enableGestures = Key<Bool>("enableGestures", default: false)
+    static let closeGestureEnabled = Key<Bool>("closeGestureEnabled", default: false)
     static let gestureSensitivity = Key<CGFloat>("gestureSensitivity", default: 200.0)
-    static let enableHorizontalMusicGestures = Key<Bool>("enableHorizontalMusicGestures", default: true)
+    static let enableHorizontalMusicGestures = Key<Bool>("enableHorizontalMusicGestures", default: false)
     static let musicGestureBehavior = Key<MusicSkipBehavior>("musicGestureBehavior", default: .track)
     static let reverseSwipeGestures = Key<Bool>("reverseSwipeGestures", default: false)
     static let reverseScrollGestures = Key<Bool>("reverseScrollGestures", default: false)
@@ -1440,6 +1440,11 @@ extension Defaults.Keys {
             Defaults[.enableKeyboardBacklightHUD] = false
             Defaults[.enableFullscreenMediaDetection] = false
             Defaults[.enableMemoryUsageMonitor] = false
+            Defaults[.enableGestures] = false
+            Defaults[.closeGestureEnabled] = false
+            Defaults[.enableHorizontalMusicGestures] = false
+            Defaults[.reverseSwipeGestures] = false
+            Defaults[.reverseScrollGestures] = false
             Defaults[.didApplyAtollLiteDefaultsV2] = true
         }
     }

@@ -488,27 +488,9 @@ struct SettingsView: View {
             // Media & Display
             .media,
             .liveActivities,
-            .lockScreen,
             .devices,
-            // System
-            .hudAndOSD,
-            .battery,
-            // Productivity
-            .timer,
-            .calendar,
-            .notes,
             // Utilities
             .clipboard,
-            .screenAssistant,
-            .colorPicker,
-            .shelf,
-            .downloads,
-            .shortcuts,
-            // Developer
-            .stats,
-            .terminal,
-            // Integrations
-            .extensions,
             // Info
             .about
         ]
@@ -545,11 +527,10 @@ struct SettingsView: View {
     }
 
     private var searchSuggestions: [SettingsSearchEntry] {
-        Array(searchEntries(matching: searchText).filter { $0.tab != .downloads }.prefix(8))
+        Array(searchEntries(matching: searchText).prefix(8))
     }
 
     private func handleSearchSuggestionSelection(_ suggestion: SettingsSearchEntry) {
-        guard suggestion.tab != .downloads else { return }
         highlightCoordinator.focus(on: suggestion)
         selectedTab = suggestion.tab
     }
@@ -703,10 +684,6 @@ struct SettingsView: View {
             SettingsSearchEntry(tab: .general, title: "Show on a specific display", keywords: ["preferred screen", "display picker"], highlightID: SettingsTab.general.highlightID(for: "Show on a specific display")),
             SettingsSearchEntry(tab: .general, title: "Automatically switch displays", keywords: ["auto switch", "displays"], highlightID: SettingsTab.general.highlightID(for: "Automatically switch displays")),
             SettingsSearchEntry(tab: .general, title: "Hide Dynamic Island during screenshots & recordings", keywords: ["privacy", "screenshot", "recording"], highlightID: SettingsTab.general.highlightID(for: "Hide Dynamic Island during screenshots & recordings")),
-            SettingsSearchEntry(tab: .general, title: "Enable gestures", keywords: ["gestures", "trackpad"], highlightID: SettingsTab.general.highlightID(for: "Enable gestures")),
-            SettingsSearchEntry(tab: .general, title: "Close gesture", keywords: ["pinch", "swipe"], highlightID: SettingsTab.general.highlightID(for: "Close gesture")),
-            SettingsSearchEntry(tab: .general, title: "Reverse swipe gestures", keywords: ["reverse", "swipe", "media"], highlightID: SettingsTab.general.highlightID(for: "Reverse swipe gestures")),
-            SettingsSearchEntry(tab: .general, title: "Reverse scroll gestures", keywords: ["reverse", "scroll", "open", "close"], highlightID: SettingsTab.general.highlightID(for: "Reverse scroll gestures")),
             SettingsSearchEntry(tab: .general, title: "Extend hover area", keywords: ["hover", "cursor"], highlightID: SettingsTab.general.highlightID(for: "Extend hover area")),
             SettingsSearchEntry(tab: .general, title: "Enable haptics", keywords: ["haptic", "feedback"], highlightID: SettingsTab.general.highlightID(for: "Enable haptics")),
             SettingsSearchEntry(tab: .general, title: "Open notch on hover", keywords: ["hover to open", "auto open"], highlightID: SettingsTab.general.highlightID(for: "Open notch on hover")),
@@ -930,10 +907,10 @@ struct SettingsView: View {
 
     private func isTabVisible(_ tab: SettingsTab) -> Bool {
         switch tab {
-        case .timer, .stats, .clipboard, .screenAssistant, .colorPicker, .shelf, .notes, .terminal:
-            return !enableMinimalisticUI
-        default:
+        case .general, .appearance, .media, .liveActivities, .devices, .clipboard, .about:
             return true
+        default:
+            return false
         }
     }
 
@@ -1040,7 +1017,6 @@ struct GeneralSettings: View {
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @Default(.mirrorShape) var mirrorShape
     @Default(.showEmojis) var showEmojis
-    @Default(.gestureSensitivity) var gestureSensitivity
     @Default(.minimumHoverDuration) var minimumHoverDuration
     @Default(.nonNotchHeight) var nonNotchHeight
     @Default(.nonNotchHeightMode) var nonNotchHeightMode
@@ -1050,13 +1026,8 @@ struct GeneralSettings: View {
     @Default(.notchHeightMode) var notchHeightMode
     @Default(.showOnAllDisplays) var showOnAllDisplays
     @Default(.automaticallySwitchDisplay) var automaticallySwitchDisplay
-    @Default(.enableGestures) var enableGestures
     @Default(.openNotchOnHover) var openNotchOnHover
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
-    @Default(.enableHorizontalMusicGestures) var enableHorizontalMusicGestures
-    @Default(.musicGestureBehavior) var musicGestureBehavior
-    @Default(.reverseSwipeGestures) var reverseSwipeGestures
-    @Default(.reverseScrollGestures) var reverseScrollGestures
     @Default(.externalDisplayStyle) var externalDisplayStyle
     @Default(.hideNonNotchUntilHover) var hideNonNotchUntilHover
 
@@ -1194,7 +1165,6 @@ struct GeneralSettings: View {
 
             NotchBehaviour()
 
-            gestureControls()
         }
         .toolbar {
             Button("Quit app") {
@@ -1203,76 +1173,6 @@ struct GeneralSettings: View {
             .controlSize(.extraLarge)
         }
         .navigationTitle("General")
-        .onChange(of: openNotchOnHover) {
-            if !openNotchOnHover {
-                enableGestures = true
-            }
-        }
-    }
-
-    @ViewBuilder
-    func gestureControls() -> some View {
-        Section {
-            Defaults.Toggle(key: .enableGestures) {
-                Text("Enable gestures")
-            }
-            .disabled(!openNotchOnHover)
-            .settingsHighlight(id: highlightID("Enable gestures"))
-            if enableGestures {
-                Defaults.Toggle(key: .enableHorizontalMusicGestures) {
-                    Text("Media change with horizontal gestures")
-                }
-                .settingsHighlight(id: highlightID("Horizontal media gestures"))
-
-                if enableHorizontalMusicGestures {
-                    Picker("Gesture skip behavior", selection: $musicGestureBehavior) {
-                        ForEach(MusicSkipBehavior.allCases) { behavior in
-                            Text(behavior.displayName)
-                                .tag(behavior)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .settingsHighlight(id: highlightID("Gesture skip behavior"))
-
-                    Text(musicGestureBehavior.description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    Defaults.Toggle(key: .reverseSwipeGestures) {
-                        Text("Reverse swipe gestures")
-                    }
-                    .settingsHighlight(id: highlightID("Reverse swipe gestures"))
-                }
-
-                Defaults.Toggle(key: .closeGestureEnabled) {
-                    Text("Close gesture")
-                }
-                .settingsHighlight(id: highlightID("Close gesture"))
-                Slider(value: $gestureSensitivity, in: 100...300, step: 100) {
-                    HStack {
-                        Text("Gesture sensitivity")
-                        Spacer()
-                        Text(Defaults[.gestureSensitivity] == 100 ? "High" : Defaults[.gestureSensitivity] == 200 ? "Medium" : "Low")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Defaults.Toggle(key: .reverseScrollGestures) {
-                    Text("Reverse open/close scroll gestures")
-                }
-                .settingsHighlight(id: highlightID("Reverse scroll gestures"))
-            }
-        } header: {
-            HStack {
-                Text("Gesture control")
-                customBadge(text: "Beta")
-            }
-        } footer: {
-            Text("Two-finger swipe up on notch to close, two-finger swipe down on notch to open when **Open notch on hover** option is disabled")
-                .multilineTextAlignment(.trailing)
-                .foregroundStyle(.secondary)
-                .font(.caption)
-        }
     }
 
     @ViewBuilder
@@ -2488,15 +2388,10 @@ private struct HUDSelectionCard<Preview: View>: View {
 }
 
 private struct DevicesSettingsView: View {
-    @Default(.progressBarStyle) var progressBarStyle
     @Default(.useBluetoothHUD3DIcon) private var useBluetoothHUD3DIcon
 
     private func highlightID(_ title: String) -> String {
         SettingsTab.devices.highlightID(for: title)
-    }
-
-    private var colorCodingDisabled: Bool {
-        progressBarStyle == .segmented
     }
 
     var body: some View {
@@ -2547,30 +2442,6 @@ private struct DevicesSettingsView: View {
                 Text("Displays a HUD notification when Bluetooth audio devices (headphones, AirPods, speakers) connect, showing device name and battery level.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
-            }
-
-            Section {
-                Defaults.Toggle(key: .useColorCodedBatteryDisplay) {
-                    Text("Color-coded battery display")
-                }
-                .disabled(colorCodingDisabled)
-                .settingsHighlight(id: highlightID("Color-coded battery display"))
-            } header: {
-                Text("Battery Indicator Styling")
-            } footer: {
-                if progressBarStyle == .segmented {
-                    Text("Color-coded fills are unavailable in Segmented mode. Switch to Hierarchical or Gradient inside Controls › Dynamic Island to adjust advanced options.")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                } else if Defaults[.useSmoothColorGradient] {
-                    Text("Smooth transitions blend Green (0–60%), Yellow (60–85%), and Red (85–100%) through the entire fill. Adjust gradient behavior from Controls › Dynamic Island.")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                } else {
-                    Text("Discrete transitions snap between Green (0–60%), Yellow (60–85%), and Red (85–100%).")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                }
             }
         }
         .navigationTitle("Devices")

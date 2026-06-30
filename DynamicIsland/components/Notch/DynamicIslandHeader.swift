@@ -22,22 +22,13 @@ import SwiftUI
 struct DynamicIslandHeader: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     @EnvironmentObject var webcamManager: WebcamManager
-    @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject var clipboardManager = ClipboardManager.shared
     @ObservedObject var shelfState = ShelfStateViewModel.shared
-    @ObservedObject var timerManager = TimerManager.shared
     @ObservedObject var doNotDisturbManager = DoNotDisturbManager.shared
     @State private var showClipboardPopover = false
-    @State private var showColorPickerPopover = false
-    @State private var showTimerPopover = false
-    @Default(.enableTimerFeature) var enableTimerFeature
-    @Default(.timerDisplayMode) var timerDisplayMode
     @Default(.showClipboardIcon) var showClipboardIcon
-    @Default(.showColorPickerIcon) var showColorPickerIcon
     @Default(.clipboardDisplayMode) var clipboardDisplayMode
-    @Default(.showBatteryIndicator) var showBatteryIndicator
-    @Default(.showBatteryPercentInside) var showBatteryPercentInside
     @Default(.enableMinimalisticUI) var enableMinimalisticUI
     
     var body: some View {
@@ -132,72 +123,6 @@ struct DynamicIslandHeader: View {
                         }
                     }
                     
-                    // ColorPicker button
-                    if Defaults[.enableColorPickerFeature] && showColorPickerIcon{
-                        Button(action: {
-                            switch Defaults[.colorPickerDisplayMode] {
-                            case .panel:
-                                ColorPickerPanelManager.shared.toggleColorPickerPanel()
-                            case .popover:
-                                showColorPickerPopover.toggle()
-                            }
-                        }) {
-                            Capsule()
-                                .fill(.black)
-                                .frame(width: 30, height: 30)
-                                .overlay {
-                                    Image(systemName: "eyedropper")
-                                        .foregroundColor(.white)
-                                        .padding()
-                                        .imageScale(.medium)
-                                }
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .popover(isPresented: $showColorPickerPopover, arrowEdge: .bottom) {
-                            ColorPickerPopover()
-                        }
-                        .onChange(of: showColorPickerPopover) { isActive in
-                            vm.isColorPickerPopoverActive = isActive
-                            
-                            // If popover was closed, trigger a hover recheck
-                            if !isActive {
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                    vm.shouldRecheckHover.toggle()
-                                }
-                            }
-                        }
-                    }
-                    
-                    if Defaults[.enableTimerFeature] && timerDisplayMode == .popover {
-                        Button(action: {
-                            withAnimation(.smooth) {
-                                showTimerPopover.toggle()
-                            }
-                        }) {
-                            Capsule()
-                                .fill(.black)
-                                .frame(width: 30, height: 30)
-                                .overlay {
-                                    Image(systemName: "timer")
-                                        .foregroundColor(.white)
-                                        .padding()
-                                        .imageScale(.medium)
-                                }
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .popover(isPresented: $showTimerPopover, arrowEdge: .bottom) {
-                            TimerPopover()
-                        }
-                        .onChange(of: showTimerPopover) { isActive in
-                            vm.isTimerPopoverActive = isActive
-                            if !isActive {
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                    vm.shouldRecheckHover.toggle()
-                                }
-                            }
-                        }
-                    }
-                    
                     if Defaults[.settingsIconInNotch] {
                         Button(action: {
                             SettingsWindowController.shared.showWindow()
@@ -228,35 +153,6 @@ struct DynamicIslandHeader: View {
                         FocusIndicator()
                             .frame(width: 30, height: 30)
                             .transition(.opacity)
-                    }
-                }
-
-                if vm.notchState == .open && showBatteryIndicator {
-                    if enableMinimalisticUI {
-                        if !shouldUseDynamicIslandMode(for: vm.screen) {
-                            MinimalisticBatteryView(
-                                levelBattery: batteryModel.levelBattery,
-                                isPluggedIn: batteryModel.isPluggedIn,
-                                isCharging: batteryModel.isCharging,
-                                isInLowPowerMode: batteryModel.isInLowPowerMode,
-                                bodyWidth: 28,
-                                bodyHeight: 14,
-                                isForNotification: false,
-                                showPercentInside: showBatteryPercentInside
-                            )
-                            .padding(.trailing, 4)
-                        }
-                    } else {
-                        DynamicIslandBatteryView(
-                            batteryWidth: 30,
-                            isCharging: batteryModel.isCharging,
-                            isInLowPowerMode: batteryModel.isInLowPowerMode,
-                            isPluggedIn: batteryModel.isPluggedIn,
-                            levelBattery: batteryModel.levelBattery,
-                            maxCapacity: batteryModel.maxCapacity,
-                            timeToFullCharge: batteryModel.timeToFullCharge,
-                            isForNotification: false
-                        )
                     }
                 }
             }
@@ -292,18 +188,6 @@ struct DynamicIslandHeader: View {
                 showClipboardPopover.toggle()
             }
         }
-        .onChange(of: enableTimerFeature) { _, newValue in
-            if !newValue {
-                showTimerPopover = false
-                vm.isTimerPopoverActive = false
-            }
-        }
-        .onChange(of: timerDisplayMode) { _, mode in
-            if mode == .tab {
-                showTimerPopover = false
-                vm.isTimerPopoverActive = false
-            }
-        }
     }
 }
 
@@ -312,8 +196,6 @@ private extension DynamicIslandHeader {
         Defaults[.settingsIconInNotch]
             && Defaults[.enableClipboardManager]
             && Defaults[.showClipboardIcon]
-            && Defaults[.showColorPickerIcon]
-            && Defaults[.enableTimerFeature]
     }
 }
 
