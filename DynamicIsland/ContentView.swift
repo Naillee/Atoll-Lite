@@ -1533,7 +1533,7 @@ struct ContentView: View {
                 .frame(width: 50, alignment: .center)
                 .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
                 .mask {
-                    AudioVisualizerView(isPlaying: $musicManager.isPlaying)
+                    AudioSpectrumView(isPlaying: $musicManager.isPlaying)
                         .frame(width: 16, height: 12)
                 }
                 .blur(radius: (enableClosedPlayPauseOverlay && isHoveringClosedMusicWaveformControl) ? 2.4 : 0)

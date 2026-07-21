@@ -180,59 +180,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
     
-    /// Setup observers for music player state changes to restart AudioTap capture
-    private func setupAudioTapMusicObservers() {
-        // Listen for app launches to restart capture when music apps are opened
-        let targetBundleIDs = [
-            "com.apple.Music",
-            "com.spotify.client",
-            "com.amazon.music",
-            "com.apple.Safari",
-            "com.tidal.desktop",
-            "tv.plex.plexamp",
-            "com.roon.Roon",
-            "com.audirvana.Audirvana-Studio",
-            "com.vox.vox",
-            "com.coppertino.Vox",
-        ]
-        
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didLaunchApplicationNotification,
-            object: nil,
-            queue: .main
-        ) { notification in
-            guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-                  let bundleID = app.bundleIdentifier,
-                  targetBundleIDs.contains(bundleID) else { return }
-            
-            // A target music app was launched, restart capture to include it
-            if Defaults[.enableRealTimeWaveform] {
-                print("🎵 [AudioTap] Music app launched: \(bundleID), restarting capture...")
-                // Give the app a moment to fully launch
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    AudioTap.shared.restartCapture()
-                }
-            }
-        }
-        
-        // Also observe app terminations to restart capture
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didTerminateApplicationNotification,
-            object: nil,
-            queue: .main
-        ) { notification in
-            guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-                  let bundleID = app.bundleIdentifier,
-                  targetBundleIDs.contains(bundleID) else { return }
-            
-            // A target music app was terminated, restart capture to update the list
-            if Defaults[.enableRealTimeWaveform] {
-                print("🎵 [AudioTap] Music app terminated: \(bundleID), restarting capture...")
-                AudioTap.shared.restartCapture()
-            }
-        }
-    }
-    
     func applicationWillTerminate(_ notification: Notification) {
         let userInfo: [String: Any] = [
             AtollDistributedNotifications.UserInfoKey.sourcePID: NSNumber(value: ProcessInfo.processInfo.processIdentifier)
@@ -250,9 +197,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         extensionXPCServiceHost.stop()
         extensionRPCServer.stop()
         
-        // Stop AudioTap capture
-        AudioTap.shared.stopCapture()
-
         // Restore Lunar's native OSD if integration was active
         LunarManager.shared.appWillTerminate()
     }
@@ -600,28 +544,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if Defaults[.enableCameraDetection] || Defaults[.enableMicrophoneDetection] {
             PrivacyIndicatorManager.shared.startMonitoring()
         }
-        
-        // Setup Real-time Audio Waveform capture if enabled
-        if Defaults[.enableRealTimeWaveform] {
-            Task {
-                await AudioTap.shared.startCapture()
-            }
-            setupAudioTapMusicObservers()
-        }
-        
-        // Observe enableRealTimeWaveform changes
-        Defaults.publisher(.enableRealTimeWaveform, options: [])
-            .sink { [weak self] change in
-                if change.newValue {
-                    Task {
-                        await AudioTap.shared.startCapture()
-                    }
-                    self?.setupAudioTapMusicObservers()
-                } else {
-                    AudioTap.shared.stopCapture()
-                }
-            }
-            .store(in: &cancellables)
         
         // Observe tab changes - use immediate resize to keep the notch pinned
         // Deferred to next run loop tick because @Published fires on willSet,

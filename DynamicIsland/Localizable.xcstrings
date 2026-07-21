@@ -25821,40 +25821,6 @@
         }
       }
     },
-    "Enable real-time waveform" : {
-      "localizations" : {
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "실시간 파형 활성화"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Schakel realtime golfvorm in"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "เปิดใช้รูปคลื่นแบบเรียลไทม์"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gerçek zamanlı dalga biçimini etkinleştir"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "启用实时波形"
-          }
-        }
-      }
-    },
     "Enable reminder live activity" : {
       "localizations" : {
         "ko" : {
@@ -66991,40 +66957,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "启用后，刘海关闭几秒后统计监控将停止。"
-          }
-        }
-      }
-    },
-    "When enabled, the music visualizer displays real-time audio spectrum data synced to your music. Requires macOS 14.2+ and uses minimal CPU/GPU resources via the Accelerate framework." : {
-      "localizations" : {
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "활성화 시 음악 비주얼라이저가 음악에 동기화된 실시간 오디오 스펙트럼 데이터를 표시합니다. macOS 14.2 이상이 필요하며, Accelerate 프레임워크를 통해 최소한의 CPU/GPU 리소스만 사용합니다."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Als deze optie is ingeschakeld, toont de muziekvisualisatie realtime audiospectrumgegevens die met je muziek zijn gesynchroniseerd. Vereist macOS 14.2+ en gebruikt minimale CPU/GPU-bronnen via het Accelerate-framework."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "เมื่อเปิดใช้ ตัวแสดงผลเพลงจะแสดงข้อมูลสเปกตรัมเสียงแบบเรียลไทม์ซิงค์กับเพลง ต้องการ macOS 14.2+ และใช้ทรัพยากร CPU/GPU น้อยผ่าน Accelerate framework"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Etkinleştirildiğinde, müzik görselleştirici müziğinizle senkronize edilmiş gerçek zamanlı ses spektrumu verilerini görüntüler. macOS 14.2+ gerektirir ve Accelerate çerçevesi aracılığıyla minimum CPU/GPU kaynaklarını kullanır."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "启用时，音乐可视化将显示与音乐同步的实时音频频谱数据。需要 macOS 14.2+，通过 Accelerate 框架使用最少的 CPU/GPU 资源。"
           }
         }
       }
