@@ -526,7 +526,7 @@ enum MusicAuxiliaryControl: String, CaseIterable, Identifiable, Defaults.Seriali
         case .mediaOutput:
             return "Media Output"
         case .lyrics:
-            return "Lyrics"
+            return "桌面歌词"
         }
     }
 
@@ -1276,6 +1276,7 @@ extension Defaults.Keys {
     
     // MARK: Lyrics Feature
     static let enableLyrics = Key<Bool>("enableLyrics", default: false)
+    static let enableDesktopLyrics = Key<Bool>("enableDesktopLyrics", default: false)
     static let showLiveCanvasInDynamicIsland = Key<Bool>("showLiveCanvasInDynamicIsland", default: false)
     
     // MARK: Notes Feature

@@ -22,20 +22,68 @@
 
 import AppKit
 import Combine
+import CoreFoundation
 import Defaults
 import Foundation
 import SwiftUI
 
 // MARK: - Lyric Data Structures
+struct LyricToken: Identifiable, Codable {
+    let id = UUID()
+    let text: String
+    let pronunciation: String?
+}
+
 struct LyricLine: Identifiable, Codable {
     let id = UUID()
     let timestamp: TimeInterval
     let text: String
+    let pronunciationTokens: [LyricToken]?
+    let romanization: String?
+    let translation: String?
 
-    init(timestamp: TimeInterval, text: String) {
+    init(
+        timestamp: TimeInterval,
+        text: String,
+        pronunciationTokens: [LyricToken]? = nil,
+        romanization: String? = nil,
+        translation: String? = nil
+    ) {
         self.timestamp = timestamp
         self.text = text
+        self.pronunciationTokens = pronunciationTokens
+        self.romanization = romanization
+        self.translation = translation
     }
+}
+
+private enum LyricsLanguage: Equatable {
+    case japanese
+    case korean
+    case other
+}
+
+private enum KoreanRomanizationTables {
+    static let initials = [
+        "g", "kk", "n", "d", "tt", "r", "m", "b", "pp", "s",
+        "ss", "", "j", "jj", "ch", "k", "t", "p", "h"
+    ]
+    static let vowels = [
+        "a", "ae", "ya", "yae", "eo", "e", "yeo", "ye", "o", "wa",
+        "wae", "oe", "yo", "u", "wo", "we", "wi", "yu", "eu", "ui", "i"
+    ]
+    static let finals = [
+        "", "k", "k", "k", "n", "n", "n", "t", "l", "k", "m", "p", "l", "l",
+        "p", "l", "m", "p", "p", "t", "t", "ng", "t", "t", "k", "t", "p", "t"
+    ]
+    static let liaisonCodas = [
+        "", "", "", "k", "", "n", "n", "", "", "l", "l", "l", "l", "l",
+        "l", "l", "", "", "p", "", "", "", "", "", "", "", "", ""
+    ]
+    static let liaisonOnsets = [
+        "", "g", "kk", "s", "n", "j", "", "d", "r", "g", "m", "b", "s", "t",
+        "p", "", "m", "b", "s", "s", "ss", "ng", "j", "ch", "k", "t", "p", ""
+    ]
 }
 
 private struct LyricsLookupKey: Hashable {
@@ -46,6 +94,44 @@ private struct LyricsLookupKey: Hashable {
     var isValid: Bool {
         !title.isEmpty && !artist.isEmpty
     }
+}
+
+private struct LRCLIBLyricsResult: Decodable {
+    let trackName: String
+    let artistName: String
+    let albumName: String?
+    let duration: Double?
+    let plainLyrics: String?
+    let syncedLyrics: String?
+}
+
+private struct NetEaseSearchResponse: Decodable {
+    let result: NetEaseSearchResult?
+}
+
+private struct NetEaseSearchResult: Decodable {
+    let songs: [NetEaseSong]?
+}
+
+private struct NetEaseSong: Decodable {
+    struct Artist: Decodable { let name: String }
+    struct Album: Decodable { let name: String }
+
+    let id: Int
+    let name: String
+    let artists: [Artist]
+    let album: Album
+    let duration: Double
+}
+
+private struct NetEaseLyricsResponse: Decodable {
+    struct Lyrics: Decodable { let lyric: String? }
+
+    let lrc: Lyrics?
+    let tlyric: Lyrics?
+    let romalrc: Lyrics?
+    let nolyric: Bool?
+    let uncollected: Bool?
 }
 
 let defaultImage: NSImage = .init(
@@ -517,6 +603,8 @@ class MusicManager: ObservableObject {
     private var lyricsCache: [LyricsLookupKey: [LyricLine]] = [:]
     // Bounded, insertion-order eviction so the cache cannot grow unboundedly.
     private static let lyricsCacheLimit = 80
+    private static let lyricDisplayLeadTime: TimeInterval = 0.18
+    private static let lyricSyncIntervalNanoseconds: UInt64 = 100_000_000
     private var lyricsCacheOrder: [LyricsLookupKey] = []
     private var explicitLookupTask: Task<Void, Never>?
     private var explicitLookupKey: String?
@@ -807,7 +895,6 @@ class MusicManager: ObservableObject {
             self.lastArtworkContentIdentifier = state.contentIdentifier
             self.lastArtworkContentURL = state.contentURL
 
-            self.prepareLyricsForCurrentTrack()
             if let liveArtworkURL = state.liveArtworkURL {
                 self.videoArtworkURL = liveArtworkURL
             } else {
@@ -872,9 +959,15 @@ class MusicManager: ObservableObject {
         updateLiveStreamState(with: state)
         self.timestampDate = state.lastUpdated
 
+        // Lyrics must be looked up only after the new track metadata and duration
+        // have replaced the previous track's values.
+        if hasContentChange {
+            self.prepareLyricsForCurrentTrack()
+        }
+
         // Manage lyric sync task based on playback/lyrics availability
-        if Defaults[.enableLyrics] && !self.syncedLyrics.isEmpty {
-            // Ensure syncing runs while lyrics are enabled
+        if Defaults[.enableLyrics] && !self.syncedLyrics.isEmpty && self.isPlaying {
+            // Keep the high-frequency sync loop active only during playback.
             startLyricSync()
         } else {
             stopLyricSync()
@@ -1351,7 +1444,7 @@ class MusicManager: ObservableObject {
         if trackChanged {
             syncedLyrics = []
             currentLyricIndex = -1
-            currentLyrics = shouldShowLoading ? "Loading lyrics..." : ""
+            currentLyrics = shouldShowLoading ? "正在加载歌词..." : ""
             stopLyricSync()
         }
 
@@ -1362,7 +1455,7 @@ class MusicManager: ObservableObject {
 
         if lyricsFetchKey == key {
             if shouldShowLoading && syncedLyrics.isEmpty {
-                currentLyrics = "Loading lyrics..."
+                currentLyrics = "正在加载歌词..."
             }
             return
         }
@@ -1371,7 +1464,7 @@ class MusicManager: ObservableObject {
         lyricsFetchKey = key
 
         if shouldShowLoading || (lyricsEnabled && syncedLyrics.isEmpty) {
-            currentLyrics = "Loading lyrics..."
+            currentLyrics = "正在加载歌词..."
         }
 
         let requestArtist = lookup.requestArtist
@@ -1385,7 +1478,8 @@ class MusicManager: ObservableObject {
                 let lyrics = try await self.fetchLyricsFromAPI(
                     artist: requestArtist,
                     title: requestTitle,
-                    album: requestAlbum
+                    album: requestAlbum,
+                    duration: self.songDuration
                 )
                 guard !Task.isCancelled else { return }
 
@@ -1404,74 +1498,417 @@ class MusicManager: ObservableObject {
                     self.lyricsFetchTask = nil
                     self.syncedLyrics = []
                     self.currentLyricIndex = -1
-                    self.currentLyrics = lyricsEnabled ? "No lyrics found" : ""
+                    self.currentLyrics = lyricsEnabled ? "未找到歌词" : ""
                     self.stopLyricSync()
                 }
             }
         }
     }
 
-    private func fetchLyricsFromAPI(artist: String, title: String, album: String) async throws -> [LyricLine] {
+    private func fetchLyricsFromAPI(
+        artist: String,
+        title: String,
+        album: String,
+        duration: TimeInterval
+    ) async throws -> [LyricLine] {
         guard !artist.isEmpty, !title.isEmpty else { return [] }
 
-        // Normalize input and percent-encode
+        async let lrclibRequest = fetchLyricsFromLRCLIB(
+            artist: artist,
+            title: title,
+            album: album,
+            duration: duration
+        )
+        async let netEaseRequest = fetchLyricsFromNetEase(
+            artist: artist,
+            title: title,
+            album: album,
+            duration: duration
+        )
+
+        let lrclibLyrics = (try? await lrclibRequest) ?? []
+        let netEaseLyrics = (try? await netEaseRequest) ?? []
+        let netEaseHasSupplementalLyrics = netEaseLyrics.contains {
+            $0.romanization != nil || $0.translation != nil
+        }
+        let selectedLyrics: [LyricLine]
+        if netEaseHasSupplementalLyrics {
+            selectedLyrics = netEaseLyrics
+        } else {
+            let hasSynchronizedLRCLIBLyrics = lrclibLyrics.count > 1
+                || lrclibLyrics.contains(where: { $0.timestamp > 0 })
+            if hasSynchronizedLRCLIBLyrics {
+                selectedLyrics = lrclibLyrics
+            } else {
+                selectedLyrics = netEaseLyrics.isEmpty ? lrclibLyrics : netEaseLyrics
+            }
+        }
+
+        return addingPronunciationTokens(to: selectedLyrics)
+    }
+
+    private func fetchLyricsFromLRCLIB(
+        artist: String,
+        title: String,
+        album: String,
+        duration: TimeInterval
+    ) async throws -> [LyricLine] {
+
+        // Normalize input before building a structured query.
         let cleanArtist = artist.folding(options: .diacriticInsensitive, locale: .current)
         let cleanTitle = title.folding(options: .diacriticInsensitive, locale: .current)
         let cleanAlbum = album.folding(options: .diacriticInsensitive, locale: .current)
-        guard let encodedArtist = cleanArtist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let encodedTitle = cleanTitle.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
-            return []
-        }
 
         // Use LRCLIB search endpoint which returns an array JSON with `plainLyrics` and/or `syncedLyrics`.
-        let urlString = "https://lrclib.net/api/search?track_name=\(encodedTitle)&artist_name=\(encodedArtist)"
-        guard let url = URL(string: urlString) else { return [] }
+        var components = URLComponents(string: "https://lrclib.net/api/search")
+        components?.queryItems = [
+            URLQueryItem(name: "track_name", value: cleanTitle),
+            URLQueryItem(name: "artist_name", value: cleanArtist)
+        ]
+        guard let url = components?.url else { return [] }
 
         let (data, response) = try await URLSession.shared.data(from: url)
-        if let http = response as? HTTPURLResponse, http.statusCode == 200 {
-            // Try parse as array JSON (preferred)
-            if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
-               let bestMatch = bestLyricsMatch(in: jsonArray, artist: cleanArtist, title: cleanTitle, album: cleanAlbum) {
-                let first = bestMatch
-                let plain = (first["plainLyrics"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                let synced = (first["syncedLyrics"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return [] }
 
-                if !synced.isEmpty {
-                    return parseLRC(synced)
-                } else if !plain.isEmpty {
-                    return [LyricLine(timestamp: 0, text: plain)]
-                } else {
-                    return []
-                }
-            } else {
-                // Fallback: try to decode as UTF8 and handle as LRC or plain text
-                if let lrcString = String(data: data, encoding: .utf8) {
-                    let trimmed = lrcString.trimmingCharacters(in: .whitespacesAndNewlines)
+        let results = try JSONDecoder().decode([LRCLIBLyricsResult].self, from: data)
+        guard let bestMatch = bestLyricsMatch(
+            in: results,
+            artist: cleanArtist,
+            title: cleanTitle,
+            album: cleanAlbum,
+            duration: duration
+        ) else { return [] }
 
-                    if trimmed.isEmpty  {
-                        return []
-                    }
+        let plain = bestMatch.plainLyrics?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let synced = bestMatch.syncedLyrics?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
-                    // If it contains a syncedLyrics key in an object, try that
-                    if let json = try? JSONSerialization.jsonObject(with: data, options: []) {
-                        if let dict = json as? [String: Any],
-                            let synced = dict["syncedLyrics"] as? String
-                        {
-                            return parseLRC(synced)
-                        }
-                        if let array = json as? [Any], array.isEmpty {
-                            return []
-                        }
-                    }
-
-                    // Otherwise treat as plain lyrics blob
-                    return [LyricLine(timestamp: 0, text: trimmed)]
-                }
-                return []
-            }
-        } else {
-            return []
+        if !synced.isEmpty {
+            return parseLRC(synced)
         }
+        if !plain.isEmpty {
+            return [LyricLine(timestamp: 0, text: simplifiedChinese(plain))]
+        }
+        return []
+    }
+
+    private func fetchLyricsFromNetEase(
+        artist: String,
+        title: String,
+        album: String,
+        duration: TimeInterval
+    ) async throws -> [LyricLine] {
+        var searchComponents = URLComponents(string: "https://music.163.com/api/search/get/web")
+        searchComponents?.queryItems = [
+            URLQueryItem(name: "s", value: "\(title) \(artist)"),
+            URLQueryItem(name: "type", value: "1"),
+            URLQueryItem(name: "offset", value: "0"),
+            URLQueryItem(name: "total", value: "true"),
+            URLQueryItem(name: "limit", value: "20")
+        ]
+        guard let searchURL = searchComponents?.url else { return [] }
+
+        var searchRequest = URLRequest(url: searchURL)
+        searchRequest.setValue("https://music.163.com/", forHTTPHeaderField: "Referer")
+        searchRequest.setValue("Atoll-Lite/1.0", forHTTPHeaderField: "User-Agent")
+
+        let (searchData, searchResponse) = try await URLSession.shared.data(for: searchRequest)
+        guard let http = searchResponse as? HTTPURLResponse, http.statusCode == 200 else { return [] }
+
+        let response = try JSONDecoder().decode(NetEaseSearchResponse.self, from: searchData)
+        guard let match = bestNetEaseLyricsMatch(
+            in: response.result?.songs ?? [],
+            artist: artist,
+            title: title,
+            album: album,
+            duration: duration
+        ) else { return [] }
+
+        var lyricsComponents = URLComponents(string: "https://music.163.com/api/song/lyric")
+        lyricsComponents?.queryItems = [
+            URLQueryItem(name: "id", value: String(match.id)),
+            URLQueryItem(name: "lv", value: "1"),
+            URLQueryItem(name: "kv", value: "1"),
+            URLQueryItem(name: "tv", value: "-1")
+        ]
+        guard let lyricsURL = lyricsComponents?.url else { return [] }
+
+        var lyricsRequest = URLRequest(url: lyricsURL)
+        lyricsRequest.setValue("https://music.163.com/", forHTTPHeaderField: "Referer")
+        lyricsRequest.setValue("Atoll-Lite/1.0", forHTTPHeaderField: "User-Agent")
+
+        let (lyricsData, lyricsResponse) = try await URLSession.shared.data(for: lyricsRequest)
+        guard let http = lyricsResponse as? HTTPURLResponse, http.statusCode == 200 else { return [] }
+
+        let payload = try JSONDecoder().decode(NetEaseLyricsResponse.self, from: lyricsData)
+        guard payload.nolyric != true,
+              payload.uncollected != true,
+              let lrc = payload.lrc?.lyric,
+              !lrc.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return [] }
+
+        let baseLyrics = parseLRC(lrc)
+        let translations = payload.tlyric?.lyric.map(parseLRC) ?? []
+        let romanizations = payload.romalrc?.lyric.map(parseLRC) ?? []
+        return mergeSupplementalLyrics(
+            into: baseLyrics,
+            translations: translations,
+            romanizations: romanizations
+        )
+    }
+
+    private func mergeSupplementalLyrics(
+        into baseLyrics: [LyricLine],
+        translations: [LyricLine],
+        romanizations: [LyricLine]
+    ) -> [LyricLine] {
+        baseLyrics.map { line in
+            let translation = supplementalText(at: line.timestamp, in: translations)
+            let romanization = supplementalText(at: line.timestamp, in: romanizations)
+            return LyricLine(
+                timestamp: line.timestamp,
+                text: line.text,
+                romanization: romanization == line.text ? nil : romanization,
+                translation: translation == line.text ? nil : translation
+            )
+        }
+    }
+
+    private func supplementalText(at timestamp: TimeInterval, in lyrics: [LyricLine]) -> String? {
+        guard let nearest = lyrics.min(by: {
+            abs($0.timestamp - timestamp) < abs($1.timestamp - timestamp)
+        }), abs(nearest.timestamp - timestamp) <= 0.5 else { return nil }
+
+        let text = nearest.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
+    }
+
+    private func addingPronunciationTokens(to lyrics: [LyricLine]) -> [LyricLine] {
+        let language = detectedLyricsLanguage(in: lyrics)
+        guard language != .other else { return lyrics }
+
+        return lyrics.map { line in
+            let tokens: [LyricToken]?
+            switch language {
+            case .japanese:
+                tokens = tokenizedPronunciation(
+                    for: line.text,
+                    localeIdentifier: "ja_JP"
+                ) { token, transcription in
+                    japanesePronunciation(for: token, transcription: transcription)
+                }
+            case .korean:
+                tokens = tokenizedPronunciation(
+                    for: line.text,
+                    localeIdentifier: "ko_KR"
+                ) { token, _ in
+                    koreanPronunciation(for: token)
+                }
+            case .other:
+                tokens = nil
+            }
+
+            return LyricLine(
+                timestamp: line.timestamp,
+                text: line.text,
+                pronunciationTokens: tokens,
+                romanization: line.romanization,
+                translation: line.translation
+            )
+        }
+    }
+
+    private func detectedLyricsLanguage(in lyrics: [LyricLine]) -> LyricsLanguage {
+        var japaneseKanaCount = 0
+        var koreanCount = 0
+
+        let lyricsText = lyrics.map(\.text).joined(separator: "\n")
+        for scalar in lyricsText.unicodeScalars {
+            switch scalar.value {
+            case 0x3040...0x30FF, 0x31F0...0x31FF, 0xFF66...0xFF9D:
+                japaneseKanaCount += 1
+            case 0x1100...0x11FF, 0x3130...0x318F, 0xA960...0xA97F,
+                 0xAC00...0xD7AF, 0xD7B0...0xD7FF:
+                koreanCount += 1
+            default:
+                break
+            }
+        }
+
+        if koreanCount > japaneseKanaCount, koreanCount > 0 { return .korean }
+        if japaneseKanaCount > 0 { return .japanese }
+        return .other
+    }
+
+    private func tokenizedPronunciation(
+        for text: String,
+        localeIdentifier: String,
+        pronunciation: (String, String?) -> String?
+    ) -> [LyricToken]? {
+        let cfText = text as CFString
+        let fullRange = CFRange(location: 0, length: CFStringGetLength(cfText))
+        let tokenizer = CFStringTokenizerCreate(
+            nil,
+            cfText,
+            fullRange,
+            kCFStringTokenizerUnitWord,
+            Locale(identifier: localeIdentifier) as CFLocale
+        )
+        let nsText = text as NSString
+        var tokens: [LyricToken] = []
+        var cursor = 0
+        var tokenType = CFStringTokenizerAdvanceToNextToken(tokenizer)
+
+        while tokenType.rawValue != 0 {
+            let range = CFStringTokenizerGetCurrentTokenRange(tokenizer)
+            guard range.location != kCFNotFound, range.length > 0 else {
+                tokenType = CFStringTokenizerAdvanceToNextToken(tokenizer)
+                continue
+            }
+
+            if range.location > cursor {
+                appendInterveningText(
+                    nsText.substring(with: NSRange(location: cursor, length: range.location - cursor)),
+                    to: &tokens
+                )
+            }
+
+            let tokenText = nsText.substring(
+                with: NSRange(location: range.location, length: range.length)
+            )
+            let transcription = CFStringTokenizerCopyCurrentTokenAttribute(
+                tokenizer,
+                kCFStringTokenizerAttributeLatinTranscription
+            ) as? String
+            let reading = pronunciation(tokenText, transcription)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            tokens.append(LyricToken(
+                text: tokenText,
+                pronunciation: reading?.isEmpty == false ? reading : nil
+            ))
+            cursor = range.location + range.length
+            tokenType = CFStringTokenizerAdvanceToNextToken(tokenizer)
+        }
+
+        if cursor < nsText.length {
+            appendInterveningText(nsText.substring(from: cursor), to: &tokens)
+        }
+
+        guard tokens.contains(where: { $0.pronunciation != nil }) else { return nil }
+        return tokens
+    }
+
+    private func appendInterveningText(_ value: String, to tokens: inout [LyricToken]) {
+        let visibleText = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !visibleText.isEmpty else { return }
+
+        guard let previous = tokens.popLast() else {
+            tokens.append(LyricToken(text: visibleText, pronunciation: nil))
+            return
+        }
+        tokens.append(LyricToken(
+            text: previous.text + visibleText,
+            pronunciation: previous.pronunciation
+        ))
+    }
+
+    private func japanesePronunciation(for token: String, transcription: String?) -> String? {
+        switch token {
+        case "は": return "wa"
+        case "へ": return "e"
+        case "を": return "o"
+        default: break
+        }
+
+        guard let transcription else { return nil }
+        let normalized = transcription
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty,
+              normalized != token.lowercased() else { return nil }
+        return normalized
+    }
+
+    private func koreanPronunciation(for token: String) -> String? {
+        let scalars = Array(token.unicodeScalars)
+        let syllables = scalars.map(decomposedHangulSyllable)
+        guard syllables.contains(where: { $0 != nil }) else { return nil }
+
+        var onsetOverrides: [Int: String] = [:]
+        var pronunciation: [String] = []
+
+        for index in scalars.indices {
+            guard let syllable = syllables[index] else {
+                pronunciation.append(String(scalars[index]))
+                continue
+            }
+
+            var coda = KoreanRomanizationTables.finals[syllable.final]
+            if syllable.final > 0,
+               syllables.indices.contains(index + 1),
+               let nextSyllable = syllables[index + 1],
+               nextSyllable.initial == 11 {
+                coda = KoreanRomanizationTables.liaisonCodas[syllable.final]
+                onsetOverrides[index + 1] = KoreanRomanizationTables.liaisonOnsets[syllable.final]
+            }
+
+            let onset = onsetOverrides[index]
+                ?? KoreanRomanizationTables.initials[syllable.initial]
+            pronunciation.append(
+                onset
+                    + KoreanRomanizationTables.vowels[syllable.vowel]
+                    + coda
+            )
+        }
+
+        return pronunciation.joined(separator: " ")
+    }
+
+    private func decomposedHangulSyllable(
+        _ scalar: Unicode.Scalar
+    ) -> (initial: Int, vowel: Int, final: Int)? {
+        guard (0xAC00...0xD7A3).contains(scalar.value) else { return nil }
+        let offset = Int(scalar.value - 0xAC00)
+        return (
+            initial: offset / 588,
+            vowel: (offset % 588) / 28,
+            final: offset % 28
+        )
+    }
+
+    private func bestNetEaseLyricsMatch(
+        in results: [NetEaseSong],
+        artist: String,
+        title: String,
+        album: String,
+        duration: TimeInterval
+    ) -> NetEaseSong? {
+        let requestedAlbum = normalizedLyricsMatchText(album)
+
+        return results.compactMap { result -> (song: NetEaseSong, score: Int)? in
+            let candidateArtist = result.artists.map(\.name).joined(separator: "/")
+            guard lyricsTitlesMatch(result.name, title),
+                  artistsMatch(artist, candidateArtist)
+            else { return nil }
+
+            let resultDuration = result.duration / 1_000
+            let durationDifference = duration > 0 ? abs(resultDuration - duration) : 0
+            guard duration <= 0 || durationDifference <= 12 else { return nil }
+
+            var score = normalizedLyricsMatchText(result.name) == normalizedLyricsMatchText(title) ? 12 : 10
+            score += normalizedArtistNames(artist) == normalizedArtistNames(candidateArtist) ? 10 : 7
+
+            let candidateAlbum = normalizedLyricsMatchText(result.album.name)
+            if !requestedAlbum.isEmpty && candidateAlbum == requestedAlbum { score += 5 }
+            if duration > 0 {
+                if durationDifference <= 2 { score += 12 }
+                else if durationDifference <= 5 { score += 8 }
+                else if durationDifference <= 10 { score += 3 }
+            }
+            return (result, score)
+        }
+        .max { $0.score < $1.score }
+        .flatMap { $0.score >= 20 ? $0.song : nil }
     }
 
     private func currentLyricsLookupContext() -> (key: LyricsLookupKey, requestArtist: String, requestTitle: String, requestAlbum: String)? {
@@ -1515,40 +1952,200 @@ class MusicManager: ObservableObject {
         return normalizedLyricsRequestComponent(normalized)
     }
 
-    private func bestLyricsMatch(in results: [[String: Any]], artist: String, title: String, album: String) -> [String: Any]? {
-        let normalizedArtist = artist.lowercased()
-        let normalizedTitle = title.lowercased()
-        let normalizedAlbum = album.lowercased()
+    private func bestLyricsMatch(
+        in results: [LRCLIBLyricsResult],
+        artist: String,
+        title: String,
+        album: String,
+        duration: TimeInterval
+    ) -> LRCLIBLyricsResult? {
+        let candidates = results
+            .compactMap { result -> (result: LRCLIBLyricsResult, score: Int)? in
+                guard isEligibleLyricsMatch(result, artist: artist, title: title) else { return nil }
+                if duration > 0, let resultDuration = result.duration,
+                   abs(resultDuration - duration) > 12 {
+                    return nil
+                }
+                return (
+                    result,
+                    lyricsMatchScore(
+                        for: result,
+                        artist: artist,
+                        title: title,
+                        album: album,
+                        duration: duration
+                    )
+                )
+            }
 
-        return results.max { lhs, rhs in
-            lyricsMatchScore(for: lhs, artist: normalizedArtist, title: normalizedTitle, album: normalizedAlbum)
-                < lyricsMatchScore(for: rhs, artist: normalizedArtist, title: normalizedTitle, album: normalizedAlbum)
+        let synchronizedCandidates = candidates.filter {
+            !($0.result.syncedLyrics ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .isEmpty
         }
+        let preferredCandidates = synchronizedCandidates.isEmpty ? candidates : synchronizedCandidates
+
+        return preferredCandidates
+            .max { $0.score < $1.score }
+            .flatMap { $0.score >= 20 ? $0.result : nil }
     }
 
-    private func lyricsMatchScore(for result: [String: Any], artist: String, title: String, album: String) -> Int {
-        let resultArtist = ((result["artistName"] as? String) ?? "").lowercased()
-        let resultTitle = ((result["trackName"] as? String) ?? "").lowercased()
-        let resultAlbum = ((result["albumName"] as? String) ?? "").lowercased()
+    private func isEligibleLyricsMatch(
+        _ result: LRCLIBLyricsResult,
+        artist: String,
+        title: String
+    ) -> Bool {
+        guard lyricsTitlesMatch(title, result.trackName),
+              artistsMatch(artist, result.artistName) else { return false }
+
+        let requestedQualifier = lyricsTitleQualifier(title)
+        let candidateQualifier = lyricsTitleQualifier(result.trackName)
+        return requestedQualifier.isEmpty
+            || candidateQualifier.isEmpty
+            || requestedQualifier == candidateQualifier
+    }
+
+    private func lyricsMatchScore(
+        for result: LRCLIBLyricsResult,
+        artist: String,
+        title: String,
+        album: String,
+        duration: TimeInterval
+    ) -> Int {
+        let requestedTitle = normalizedLyricsMatchText(title)
+        let resultTitle = normalizedLyricsMatchText(result.trackName)
+        let requestedAlbum = normalizedLyricsMatchText(album)
+        let resultAlbum = normalizedLyricsMatchText(result.albumName ?? "")
 
         var score = 0
 
-        if resultTitle == title { score += 8 }
-        else if resultTitle.contains(title) || title.contains(resultTitle) { score += 4 }
-
-        if resultArtist == artist { score += 8 }
-        else if resultArtist.contains(artist) || artist.contains(resultArtist) { score += 4 }
-
-        if !album.isEmpty {
-            if resultAlbum == album { score += 4 }
-            else if resultAlbum.contains(album) || album.contains(resultAlbum) { score += 2 }
+        if resultTitle == requestedTitle {
+            score += 12
+        } else if canonicalLyricsTitle(result.trackName) == canonicalLyricsTitle(title) {
+            score += 10
+        } else if lyricsTitlesMatch(result.trackName, title) {
+            score += 10
         }
 
-        if !(result["syncedLyrics"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        let requestedArtists = normalizedArtistNames(artist)
+        let resultArtists = normalizedArtistNames(result.artistName)
+        if requestedArtists == resultArtists {
+            score += 10
+        } else if requestedArtists.isSubset(of: resultArtists) || resultArtists.isSubset(of: requestedArtists) {
+            score += 7
+        }
+
+        if !requestedAlbum.isEmpty {
+            if resultAlbum == requestedAlbum {
+                score += 5
+            } else if canonicalLyricsTitle(result.albumName ?? "") == canonicalLyricsTitle(album) {
+                score += 5
+            }
+        }
+
+        if duration > 0, let resultDuration = result.duration {
+            let difference = abs(resultDuration - duration)
+            if difference <= 2 {
+                score += 12
+            } else if difference <= 5 {
+                score += 8
+            } else if difference <= 10 {
+                score += 3
+            } else if difference > 20 {
+                score -= 8
+            }
+        }
+
+        if !(result.syncedLyrics ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             score += 3
         }
 
         return score
+    }
+
+    private func normalizedLyricsMatchText(_ value: String) -> String {
+        value
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+            .replacingOccurrences(of: #"[^\p{L}\p{N}]+"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func canonicalLyricsTitle(_ value: String) -> String {
+        normalizedLyricsMatchText(
+            value.replacingOccurrences(
+                of: #"\s*[\(\[].*?[\)\]]\s*"#,
+                with: " ",
+                options: .regularExpression
+            )
+        )
+    }
+
+    private func lyricsTitlesMatch(_ lhs: String, _ rhs: String) -> Bool {
+        !lyricsTitleAliases(lhs).isDisjoint(with: lyricsTitleAliases(rhs))
+    }
+
+    private func lyricsTitleAliases(_ value: String) -> Set<String> {
+        var aliases: Set<String> = [
+            normalizedLyricsMatchText(value),
+            canonicalLyricsTitle(value)
+        ]
+
+        if let regex = try? NSRegularExpression(pattern: #"[\(\[]([^\)\]]+)[\)\]]"#) {
+            let range = NSRange(value.startIndex..<value.endIndex, in: value)
+            for match in regex.matches(in: value, range: range) where match.numberOfRanges > 1 {
+                guard let aliasRange = Range(match.range(at: 1), in: value) else { continue }
+                aliases.insert(normalizedLyricsMatchText(String(value[aliasRange])))
+            }
+        }
+
+        aliases.remove("")
+        return aliases
+    }
+
+    private func lyricsTitleQualifier(_ value: String) -> String {
+        guard let regex = try? NSRegularExpression(
+            pattern: #"[\(\[]([^\)\]]+)[\)\]]"#,
+            options: [.caseInsensitive]
+        ) else { return "" }
+
+        let range = NSRange(value.startIndex..<value.endIndex, in: value)
+        let qualifiers = regex.matches(in: value, range: range).compactMap { match -> String? in
+            guard match.numberOfRanges > 1,
+                  let qualifierRange = Range(match.range(at: 1), in: value) else { return nil }
+            let normalized = normalizedLyricsMatchText(String(value[qualifierRange]))
+            return normalized.isEmpty ? nil : normalized
+        }
+        return qualifiers.joined(separator: " ")
+    }
+
+    private func normalizedArtistNames(_ value: String) -> Set<String> {
+        let separators = #"\s*(?:,|&|/|;|\bfeat\.?\b|\bft\.?\b|\bfeaturing\b)\s*"#
+        guard let regex = try? NSRegularExpression(pattern: separators, options: [.caseInsensitive]) else {
+            return [normalizedLyricsMatchText(value)]
+        }
+
+        let range = NSRange(value.startIndex..<value.endIndex, in: value)
+        let separated = regex.stringByReplacingMatches(in: value, range: range, withTemplate: "|")
+        return Set(
+            separated
+                .split(separator: "|")
+                .map {
+                    normalizedLyricsMatchText(String($0))
+                        .replacingOccurrences(of: " ", with: "")
+                }
+                .filter { !$0.isEmpty }
+        )
+    }
+
+    private func artistsMatch(_ lhs: String, _ rhs: String) -> Bool {
+        let lhsArtists = normalizedArtistNames(lhs)
+        let rhsArtists = normalizedArtistNames(rhs)
+        guard !lhsArtists.isEmpty, !rhsArtists.isEmpty else { return false }
+        return lhsArtists == rhsArtists
+            || lhsArtists.isSubset(of: rhsArtists)
+            || rhsArtists.isSubset(of: lhsArtists)
     }
 
     private func applyLyricsToDisplay(_ lyrics: [LyricLine]) {
@@ -1556,7 +2153,7 @@ class MusicManager: ObservableObject {
         currentLyricIndex = -1
 
         guard !lyrics.isEmpty else {
-            currentLyrics = Defaults[.enableLyrics] ? "No lyrics found" : ""
+            currentLyrics = Defaults[.enableLyrics] ? "未找到歌词" : ""
             stopLyricSync()
             return
         }
@@ -1568,7 +2165,7 @@ class MusicManager: ObservableObject {
             currentLyrics = firstLine
         }
 
-        if Defaults[.enableLyrics] {
+        if Defaults[.enableLyrics] && isPlaying {
             startLyricSync()
         } else {
             stopLyricSync()
@@ -1579,8 +2176,8 @@ class MusicManager: ObservableObject {
         let lines = lrc.components(separatedBy: .newlines)
         var lyrics: [LyricLine] = []
 
-        // Accept patterns like [m:ss], [mm:ss], [mm:ss.xx] where centiseconds are optional
-        let pattern = "\\[(\\d{1,2}):(\\d{2})(?:\\.(\\d{1,2}))?\\]"
+        // Accept [m:ss], [mm:ss.xx], and millisecond timestamps such as [mm:ss.xxx].
+        let pattern = "\\[(\\d{1,2}):(\\d{2})(?:\\.(\\d{1,3}))?\\]"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { return [] }
 
         for line in lines {
@@ -1589,20 +2186,22 @@ class MusicManager: ObservableObject {
             if let match = regex.firstMatch(in: line, options: [], range: fullRange) {
                 let minRange = match.range(at: 1)
                 let secRange = match.range(at: 2)
-                let centiRange = match.range(at: 3)
+                let fractionRange = match.range(at: 3)
 
                 let minStr = minRange.location != NSNotFound ? nsLine.substring(with: minRange) : "0"
                 let secStr = secRange.location != NSNotFound ? nsLine.substring(with: secRange) : "0"
-                let centiStr = (centiRange.location != NSNotFound) ? nsLine.substring(with: centiRange) : "0"
+                let fractionString = (fractionRange.location != NSNotFound) ? nsLine.substring(with: fractionRange) : "0"
 
                 let minutes = Double(minStr) ?? 0
                 let seconds = Double(secStr) ?? 0
-                let centis = Double(centiStr) ?? 0
-                let timestamp = minutes * 60 + seconds + centis / 100.0
+                let fraction = Double("0.\(fractionString)") ?? 0
+                let timestamp = minutes * 60 + seconds + fraction
 
                 let textStart = match.range.location + match.range.length
                 if textStart <= nsLine.length {
-                    let text = nsLine.substring(from: textStart).trimmingCharacters(in: .whitespaces)
+                    let text = simplifiedChinese(
+                        nsLine.substring(from: textStart).trimmingCharacters(in: .whitespaces)
+                    )
                     if !text.isEmpty {
                         lyrics.append(LyricLine(timestamp: timestamp, text: text))
                     }
@@ -1616,15 +2215,19 @@ class MusicManager: ObservableObject {
     func updateCurrentLyric(for elapsedTime: TimeInterval) {
         guard !syncedLyrics.isEmpty else { return }
 
-        // Find the current lyric based on elapsed time
-        var newIndex = -1
-        for (index, lyric) in syncedLyrics.enumerated() {
-            if elapsedTime >= lyric.timestamp {
-                newIndex = index
+        let displayTime = elapsedTime + Self.lyricDisplayLeadTime
+        var lowerBound = 0
+        var upperBound = syncedLyrics.count
+
+        while lowerBound < upperBound {
+            let middle = lowerBound + (upperBound - lowerBound) / 2
+            if syncedLyrics[middle].timestamp <= displayTime {
+                lowerBound = middle + 1
             } else {
-                break
+                upperBound = middle
             }
         }
+        let newIndex = lowerBound - 1
 
         if newIndex != currentLyricIndex {
             currentLyricIndex = newIndex
@@ -1634,9 +2237,13 @@ class MusicManager: ObservableObject {
         }
     }
 
+    private func simplifiedChinese(_ text: String) -> String {
+        text.applyingTransform(StringTransform("Traditional-Simplified"), reverse: false) ?? text
+    }
+
     // Start a background task that periodically updates the displayed lyric
     private func startLyricSync() {
-        // If already running, keep it
+        guard Defaults[.enableLyrics], !syncedLyrics.isEmpty, isPlaying else { return }
         if lyricSyncTask != nil { return }
 
         lyricSyncTask = Task { [weak self] in
@@ -1648,8 +2255,7 @@ class MusicManager: ObservableObject {
                     self.updateCurrentLyric(for: position)
                 }
 
-                // Sleep ~300ms between updates
-                try? await Task.sleep(nanoseconds: 300_000_000)
+                try? await Task.sleep(nanoseconds: Self.lyricSyncIntervalNanoseconds)
             }
         }
     }
@@ -1693,7 +2299,7 @@ class MusicManager: ObservableObject {
         // show a loading placeholder and start fetching asynchronously.
         if showLyrics && syncedLyrics.isEmpty {
             // Provide immediate feedback so the UI can show a loading state.
-            currentLyrics = "Loading lyrics..."
+            currentLyrics = "正在加载歌词..."
 
             Task {
                 await fetchLyrics()
@@ -1701,7 +2307,7 @@ class MusicManager: ObservableObject {
                 // If fetch completed but no lyrics were found, show a friendly message.
                 await MainActor.run {
                     if self.syncedLyrics.isEmpty && self.currentLyrics.isEmpty {
-                        self.currentLyrics = "No lyrics found"
+                        self.currentLyrics = "未找到歌词"
                     }
                 }
             }

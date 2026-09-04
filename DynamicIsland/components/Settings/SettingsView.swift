@@ -2626,6 +2626,7 @@ struct Media: View {
     @Default(.showStandardMediaControls) private var showStandardMediaControls
     @Default(.autoHideInactiveNotchMediaPlayer) private var autoHideInactiveNotchMediaPlayer
     @Default(.parallaxEffectIntensity) private var parallaxEffectIntensity
+    @Default(.enableDesktopLyrics) private var enableDesktopLyrics
 
     
     @ObservedObject private var musicManager = MusicManager.shared
@@ -2777,10 +2778,15 @@ struct Media: View {
                 Toggle("Enable sneak peek", isOn: $enableSneakPeek)
                 Toggle("Show sneak peek on playback changes", isOn: $showSneakPeekOnTrackChange)
                     .disabled(!enableSneakPeek)
-                Defaults.Toggle(key: .enableLyrics) {
-                    Text("Enable lyrics")
-                }
+                Toggle(
+                    "桌面歌词",
+                    isOn: Binding(
+                        get: { enableDesktopLyrics },
+                        set: { DesktopLyricsWindowManager.shared.setEnabled($0) }
+                    )
+                )
                 .settingsHighlight(id: highlightID("Enable lyrics"))
+                .help("在桌面上方显示可拖动的同步歌词窗口。")
                 Defaults.Toggle(key: .showLiveCanvasInDynamicIsland) {
                     Text("Show live canvas in Dynamic Island")
                 }

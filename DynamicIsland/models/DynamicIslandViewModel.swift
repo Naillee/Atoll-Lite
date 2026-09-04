@@ -164,32 +164,6 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Observe settings + lyrics changes to dynamically resize the notch
-        let enableLyricsPublisher = Defaults.publisher(.enableLyrics).map { $0.newValue }
-
-        enableLyricsPublisher
-            .combineLatest(MusicManager.shared.$currentLyrics)
-            .removeDuplicates { $0.0 == $1.0 && $0.1 == $1.1 }
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                guard let self else { return }
-                guard Defaults[.enableMinimalisticUI] else { return }
-                let updatedTarget = self.calculateDynamicNotchSize()
-                guard self.notchState == .open else { return }
-                guard self.notchSize != updatedTarget else { return }
-                withAnimation(.smooth) {
-                    self.notchSize = updatedTarget
-                }
-                if let delegate = AppDelegate.shared {
-                    delegate.ensureWindowSize(
-                        addShadowPadding(to: updatedTarget, isMinimalistic: Defaults[.enableMinimalisticUI]),
-                        animated: true,
-                        force: false
-                    )
-                }
-            }
-            .store(in: &cancellables)
-
         TimerManager.shared.$activeSource
             .combineLatest(TimerManager.shared.$isTimerActive)
             .receive(on: RunLoop.main)

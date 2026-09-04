@@ -288,7 +288,7 @@ struct MusicControlsView: View {
     @Default(.musicControlSlots) private var slotConfig
     @Default(.showMediaOutputControl) private var showMediaOutputControl
     @Default(.musicSkipBehavior) private var musicSkipBehavior
-    @Default(.enableLyrics) private var enableLyrics
+    @Default(.enableDesktopLyrics) private var enableDesktopLyrics
     private let seekInterval: TimeInterval = 10
     private let skipMagnitude: CGFloat = 6
 
@@ -337,35 +337,6 @@ struct MusicControlsView: View {
                 frameWidth: width
             )
             .fontWeight(.medium)
-            // Lyrics shown under the author name (same font size as author) when enabled in settings
-            if enableLyrics {
-                let transition = AnyTransition.asymmetric(
-                    insertion: .move(edge: .bottom).combined(with: .opacity),
-                    removal: .move(edge: .top).combined(with: .opacity)
-                )
-
-                let line = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
-
-                if !line.isEmpty {
-                    let lyricsBinding = Binding<String>(
-                        get: { musicManager.currentLyrics },
-                        set: { _ in }
-                    )
-
-                    MarqueeText(
-                        lyricsBinding,
-                        font: .system(size: 12, weight: .regular),
-                        nsFont: .headline,
-                        textColor: .white.opacity(0.7),
-                        minDuration: 0.35,
-                        frameWidth: width
-                    )
-                    .padding(.top, 2)
-                    .id(line)
-                    .transition(transition)
-                    .animation(.easeInOut(duration: 0.32), value: line)
-                }
-            }
         }
     }
 
@@ -402,6 +373,7 @@ struct MusicControlsView: View {
             ForEach(Array(displayedSlots.enumerated()), id: \.offset) { _, slot in
                 slotView(for: slot)
             }
+            desktopLyricsButton
         }
         .frame(maxWidth: .infinity, alignment: .center)
     }
@@ -550,17 +522,32 @@ struct MusicControlsView: View {
     }
 
     private var displayedSlots: [MusicControlButton] {
+        let slots: [MusicControlButton]
+
         if showCustomControls {
             let normalized = slotConfig.normalized(allowingMediaOutput: showMediaOutputControl, isAppleMusicActive: isAppleMusicActive)
-            return normalized.contains(where: { $0 != .none }) ? normalized : MusicControlButton.defaultLayout
+            slots = normalized.contains(where: { $0 != .none }) ? normalized : MusicControlButton.defaultLayout
+        } else {
+            switch musicSkipBehavior {
+            case .track:
+                slots = MusicControlButton.minimalLayout
+            case .tenSecond:
+                slots = [.none, .seekBackward, .playPause, .seekForward, .none]
+            }
         }
 
-        switch musicSkipBehavior {
-        case .track:
-            return MusicControlButton.minimalLayout
-        case .tenSecond:
-            return [.none, .seekBackward, .playPause, .seekForward, .none]
+        return slots.filter { $0 != .lyrics }
+    }
+
+    private var desktopLyricsButton: some View {
+        HoverButton(
+            icon: enableDesktopLyrics ? "quote.bubble.fill" : "quote.bubble",
+            iconColor: enableDesktopLyrics ? brandAccentColor : .white,
+            scale: .medium
+        ) {
+            DesktopLyricsWindowManager.shared.toggle()
         }
+        .help(enableDesktopLyrics ? "关闭桌面歌词" : "开启桌面歌词")
     }
 
     @ViewBuilder
@@ -629,11 +616,11 @@ struct MusicControlsView: View {
             AirPlayPickerButton()
         case .lyrics:
             HoverButton(
-                icon: enableLyrics ? "quote.bubble.fill" : "quote.bubble",
-                iconColor: enableLyrics ? brandAccentColor : .white,
+                icon: enableDesktopLyrics ? "quote.bubble.fill" : "quote.bubble",
+                iconColor: enableDesktopLyrics ? brandAccentColor : .white,
                 scale: .medium
             ) {
-                enableLyrics.toggle()
+                DesktopLyricsWindowManager.shared.toggle()
             }
         }
     }

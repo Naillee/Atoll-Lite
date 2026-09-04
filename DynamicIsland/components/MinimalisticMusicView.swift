@@ -19,12 +19,9 @@
 import SwiftUI
 import Defaults
 
-// Note: lyrics display is inlined into the main minimalistic view below and is controlled by Defaults[.enableLyrics]
-
 struct MinimalisticMusicView: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     @ObservedObject var musicManager = MusicManager.shared
-    @Default(.enableLyrics) var enableLyrics
     @State private var isHovering: Bool = false
     
     var body: some View {
@@ -34,7 +31,7 @@ struct MinimalisticMusicView: View {
                 // Left: Album Art
                 albumArtView
 
-                // Middle: Song Title, Artist and Lyrics (lyrics shown under artist when enabled)
+                // Middle: Song title and artist
                 Rectangle()
                     .fill(.black)
                     .overlay(
@@ -62,12 +59,6 @@ struct MinimalisticMusicView: View {
                                         .lineLimit(1)
                                         .frame(maxWidth: .infinity, alignment: .center)
                                 }
-
-                                // Lyrics under the author name (same font size as author)
-                                if enableLyrics {
-                                    lyricsLineView
-                                        .font(.system(size: 11, weight: .regular))
-                                }
                             }
                             .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
                         }
@@ -77,10 +68,7 @@ struct MinimalisticMusicView: View {
                 // Right: Music Visualizer
                 visualizerView
             }
-
-            // (lyrics are displayed inline under the artist name)
         }
-        // reserve extra height when lyrics are enabled
         .frame(height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
         .onHover { hovering in
             isHovering = hovering
@@ -123,35 +111,5 @@ struct MinimalisticMusicView: View {
         }
         .frame(width: max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12)),
                height: max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12)), alignment: .center)
-    }
-}
-
-private extension MinimalisticMusicView {
-    var lyricsLineView: some View {
-        let line = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        return HStack(spacing: 6) {
-            if !line.isEmpty {
-                Image(systemName: "music.note")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.7))
-                    .symbolRenderingMode(.monochrome)
-
-                Text(line)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.88))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.horizontal, 6)
-                    .id(line)
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .bottom).combined(with: .opacity),
-                        removal: .move(edge: .top).combined(with: .opacity)
-                    ))
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .animation(.smooth(duration: 0.32), value: line)
     }
 }

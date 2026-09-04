@@ -61,7 +61,6 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
         .seekForward,
         .shuffle,
         .repeatMode,
-        .lyrics,
         .mediaOutput,
         .airPlay
     ]
@@ -90,7 +89,7 @@ enum MusicControlButton: String, CaseIterable, Identifiable, Codable, Defaults.S
         case .airPlay:
             return String(localized: "AirPlay")
         case .lyrics:
-            return String(localized: "Lyrics")
+            return "桌面歌词"
         case .seekBackward:
             return String(localized: "Rewind 10s")
         case .seekForward:
